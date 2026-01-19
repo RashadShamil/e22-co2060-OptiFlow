@@ -24,7 +24,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'OptiFlow',
+      title: 'Opti',
       theme: ThemeData(primarySwatch: Colors.blue),
       // THE MAGIC SWITCH
       home: (Platform.isWindows || Platform.isMacOS || Platform.isLinux)
