@@ -1,11 +1,11 @@
-import 'dart:io'; // To check platform
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:optiflow_scheduler/screens/dashboard/dashboard_screen.dart';
 
-// Placeholder screens (Your team will build these later)
 class DesktopEntry extends StatelessWidget {
   const DesktopEntry({super.key});
   @override
-  Widget build(BuildContext context) => const Scaffold(body: Center(child: Text("Desktop Dashboard")));
+  Widget build(BuildContext context) => const DashboardScreen();
 }
 
 class MobileEntry extends StatelessWidget {
