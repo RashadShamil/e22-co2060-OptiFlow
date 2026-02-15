@@ -13,7 +13,11 @@ def check_availability(machine_id, new_start_str, new_end_str):
     Checks if a machine is free during the requested slot.
     Returns: True (Available), False (Conflict)
     """
-    print(f"\n🔍 Checking availability for Machine...")
+    print(f"\n Checking availability for Machine...")
+    machine_info = supabase.table('machine').select("status").eq("id",machine_id),execute()
+    if machine_info.data and machine_info.data[0]['status'] != 'ACTIVE':
+        print(f"MACHINE DOWN Status is: {machine_info.data[0]['status']}")
+        return False
     
     # A. Fetch all EXISTING bookings for this machine
     response = supabase.table('bookings').select("*").eq("machine_id", machine_id).execute()
@@ -77,4 +81,4 @@ if __name__ == "__main__":
     create_booking(TEST_MACHINE_ID, "Rashad", "2026-02-15 14:00:00", "2026-02-15 15:00:00")
     
     print("\n--- Test 2: Sulakshan tries to steal the slot ---")
-    create_booking(TEST_MACHINE_ID, "Sulakshan", "2026-02-15 14:30:00", "2026-02-15 15:30:00")
+    create_booking(TEST_MACHINE_ID, "Sulakshan", "2026-02-15 12:01:00", "2026-02-15 11:00:00")
