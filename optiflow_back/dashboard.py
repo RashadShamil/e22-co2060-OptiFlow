@@ -17,10 +17,6 @@ except:
     st.error("CRITICAL: Backend is OFFLINE. Run 'uvicorn main:app --reload' first.")
     st.stop()
 
-
-
-
-
     
 col1, col2 = st.columns(2)
 
@@ -91,6 +87,50 @@ with col2:
         else:
             st.error("Failed to post job.")
             st.code(post_res.text) # Show technical error for debugging
+
+# [Existing Dataframe Code you already have]
+        st.dataframe(
+            df_machines[['name', 'status', 'id']], 
+            use_container_width=True,
+            hide_index=True
+        )
+
+# --- 🟢 INSERT THIS NEW PART BELOW THE DATAFRAME ---
+st.divider()
+st.subheader("Update Machine Status")
+
+res = requests.get(f"{API_URL}/machines")
+if res.status_code == 200:
+    machines_data = res.json().get('machines', [])
+
+
+# Create 3 columns for a nice layout
+u_col1, u_col2, u_col3 = st.columns([2, 2, 1])
+
+with u_col1:
+    machine_options = {m['name']: m['id'] for m in machines_data}
+    
+    # The dropdown shows Names
+    selected_name = st.selectbox("Select Machine:", list(machine_options.keys()))
+ 
+    selected_id = machine_options[selected_name]
+    
+with u_col2:
+    new_status = st.selectbox("New Status:", ["ACTIVE", "MAINTENANCE", "BROKEN"])
+    
+with u_col3:
+    st.write("") # Spacer to align button downwards
+    st.write("")
+    if st.button("Update Status"):
+        # Call the API to update only the status
+        payload = {"status": new_status}
+        patch_res = requests.patch(f"{API_URL}/machines/{selected_id}", json=payload)
+
+        if patch_res.status_code == 200:
+            st.toast(f" {selected_name} updated to {new_status}!")
+            st.rerun() # Refresh the page immediately to update the table above
+        else:
+            st.error(f"Error: {patch_res.text}")
 
 st.divider()
 st.header("Machine Fleet Status")

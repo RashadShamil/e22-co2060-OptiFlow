@@ -110,7 +110,7 @@ def create_job(job: JobCreateRequest):
 class MachineStatusUpdate(BaseModel):
     status:str
 
-@app.patch("/machine.{machine_id}")
+@app.patch("/machines/{machine_id}")
 def update_machine_status(machine_id: str, update: MachineStatusUpdate):
     print(f" Updating Machine {machine_id} to {update.status}...")
 
@@ -139,7 +139,7 @@ class MachineCreateRequest(BaseModel):
 @app.post("/create_machine")
 def machine_create(machine: MachineCreateRequest):
     print(f'Create a new machine: {machine.name}')
-    
+
     try: 
         new_machine_data = {
             "name": machine.name,
