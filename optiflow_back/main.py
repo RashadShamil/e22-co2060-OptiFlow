@@ -32,7 +32,7 @@ def book_machine(request: BookingRequest):
 
     supabase.table("bookings").insert(data_to_save).execute()
 
-    return {"message": "✅ Booking Confirmed!", "saved_data": data_to_save}
+    return {"message": "Booking Confirmed!", "saved_data": data_to_save}
 
 # --- NEW: JOB BOARD ROUTES ---
 
@@ -41,7 +41,7 @@ def get_open_jobs():
     """
     Fetch all jobs that are currently OPEN for students to take.
     """
-    print("📋 Fetching open jobs...")
+    print("Fetching open jobs...")
     
     # 1. Ask Supabase for all jobs where status is 'OPEN'
     response = supabase.table('jobs').select("*").eq("status", "OPEN").execute()
@@ -120,14 +120,39 @@ def update_machine_status(machine_id: str, update: MachineStatusUpdate):
         return {"message": "Status Updated!", "data": response.data}
 
     except Exception as e:
-        print(f"🔥 ERROR: {str(e)}")
+        print(f" ERROR: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/machines")
 def get_machines():
-    """
-    Fetch all machines and their current status.
-    """
+  
     # Ask Supabase for everything in the 'machines' table
     response = supabase.table('machines').select("*").execute()
     return {"machines": response.data}
+
+class MachineCreateRequest(BaseModel):
+    name: str
+    status: str
+    price_per_hour: int
+    image_url: str 
+
+@app.post("/create_machine")
+def machine_create(machine: MachineCreateRequest):
+    print(f'Create a new machine: {machine.name}')
+    
+    try: 
+        new_machine_data = {
+            "name": machine.name,
+            "status": machine.status,
+            "price_per_hour": machine.price_per_hour,
+            "image_url": machine.image_url
+        }
+        response = supabase.table('machines').insert(new_machine_data).execute()
+
+        print("Machine Successfully Added.")
+
+        return {"message": "Machine Registered.", "machine_details": response.data}
+
+    except Exception as e:
+        print(f" ERROR: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
