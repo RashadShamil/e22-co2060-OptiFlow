@@ -60,7 +60,7 @@ class StatCard extends StatelessWidget {
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: iconColor.withOpacity(0.1),
-                  shape: BoxShape.circle,
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(icon, color: iconColor, size: 20),
               ),
