@@ -62,9 +62,9 @@ def create_booking(machine_id, user_name, start_time, end_time):
             "end_time": end_time
         }
         supabase.table('bookings').insert(data).execute()
-        print("🎉 Booking Successfully Saved to Database!")
+        print(" Booking Successfully Saved to Database!")
     else:
-        print("⛔ Booking Rejected: Slot is busy.")
+        print("Booking Rejected: Slot is busy.")
 
 # --- 3. TEST ZONE ---
 if __name__ == "__main__":
