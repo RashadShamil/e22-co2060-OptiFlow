@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from booking_manager import check_availability, supabase
+from typing import Optional
 
 app = FastAPI()
 
@@ -40,6 +41,8 @@ class JobSubmission(BaseModel):
     proof_url: str
     notes: str
 
+class JobStatusUpdate(BaseModel):
+    status: str 
 
 # ------------------- ROOT -------------------
 
@@ -83,23 +86,17 @@ def book_machine(request: BookingRequest):
 # ------------------- JOB BOARD -------------------
 
 @app.get("/jobs")
-def get_open_jobs():
-    print("Fetching open jobs...")
 
-    # 🔧 Formatting fix + safer chained query style
-    response = (
-        supabase
-        .table("jobs")
-        .select("*")
-        .eq("status", "OPEN")
-        .execute()
-    )
+def get_jobs(status: Optional[str] = None):
 
-    return {
-        "count": len(response.data),
-        "jobs": response.data
-    }
+    query = supabase.table('jobs').select("*")
 
+    if status:
+        print(f"Filtering jobs by status: {status}")
+        query = query.eq("status", status)
+
+    response = query.execute()
+    return {"count": len(response.data), "jobs": response.data}
 
 @app.post("/claim_job")
 def claim_job(request: JobClaimRequest):
@@ -225,7 +222,7 @@ def create_machine(machine: MachineCreateRequest):
 
 @app.post("/jobs/{job_id}/submit")
 def submit_job(job_id: str, submission: JobSubmission):
-    # 🔧 Fixed typo: "reviwew" → "review"
+ 
     print(f"Job {job_id} submitted for review")
 
     try:
@@ -249,3 +246,15 @@ def submit_job(job_id: str, submission: JobSubmission):
     except Exception as e:
         print(f"ERROR: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
+
+
+
+
+@app.patch("/jobs/{job_id}")
+def update_job_status(job_id: str, update: JobStatusUpdate):
+    response = supabase.table('jobs').update({"status": update.status}).eq("id", job_id).execute()
+    return {"message": "Job Status Updated", "data": response.data}
+
+
+
+

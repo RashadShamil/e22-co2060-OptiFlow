@@ -95,7 +95,6 @@ with col2:
             hide_index=True
         )
 
-# --- 🟢 INSERT THIS NEW PART BELOW THE DATAFRAME ---
 st.divider()
 st.subheader("Update Machine Status")
 
@@ -177,4 +176,49 @@ if jobs_res.status_code == 200:
         st.dataframe(clean_table, use_container_width=True)
     else:
         st.info("No open jobs right now. The board is empty.")
+
+
+st.divider()
+st.header("Manager Inbox (Pending Approvals)")
+
+# 1. GET only the jobs waiting for review
+# Notice the '?status=REVIEW' - that uses our new dynamic filter!
+res = requests.get(f"{API_URL}/jobs?status=REVIEW")
+review_jobs = res.json().get('jobs', [])
+
+if not review_jobs:
+    st.info("No work pending review. All caught up! ☕")
+else:
+    # 2. Create a Card for each job
+    for job in review_jobs:
+        with st.expander(f"Review: {job['title']} (Worker: {job.get('assigned_to', 'Unknown')})"):
+            
+            # Layout: Proof on left, Actions on right
+            c1, c2 = st.columns([3, 1])
+            
+            with c1:
+                st.write(f"**Worker Notes:** {job.get('worker_notes', 'No notes provided.')}")
+                
+                # Show Proof
+                proof = job.get('proof_url')
+                if proof:
+                    # Smart check: Is it an image or just a link?
+                    if proof.startswith("http") and (proof.endswith(".jpg") or proof.endswith(".png")):
+                        st.image(proof, caption="Proof of Work", width=300)
+                    else:
+                        st.write(f"🔗 **Proof Link:** [{proof}]({proof})")
+            
+            with c2:
+                st.success(f"**Pay: LKR {job['price']}**")
+                
+                # THE APPROVE BUTTON
+                # We use a unique key (btn_jobID) so Streamlit doesn't get confused
+                if st.button("Approve & Pay", key=f"btn_{job['id']}"):
+                    
+                    # 3. Call the API to mark COMPLETED
+                    payload = {"status": "COMPLETED"}
+                    requests.patch(f"{API_URL}/jobs/{job['id']}", json=payload)
+                    
+                    st.toast(f"Approved {job['title']}!")
+                    st.rerun() # Refresh to remove it from the list
 
