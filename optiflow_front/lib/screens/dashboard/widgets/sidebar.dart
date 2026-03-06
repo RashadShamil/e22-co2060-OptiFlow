@@ -36,22 +36,29 @@ class Sidebar extends StatelessWidget {
   }
 
   Widget _buildLogo({bool isFooter = false}) {
+    if (isFooter) return const SizedBox(); // removed bottom placeholder
+
     return Padding(
       padding: const EdgeInsets.all(24.0),
       child: Row(
         children: [
-          // Placeholder for logo
-          Icon(Icons.circle, color: isFooter ? Colors.purple : Colors.pink, size: 32),
+          Image.asset(
+            "assets/images/logo.png",
+            height: 40,
+            errorBuilder: (context, error, stackTrace) {
+              // Fallback if image not found
+              return const Icon(Icons.print, color: Colors.purple, size: 32);
+            },
+          ),
           const SizedBox(width: 12),
-          if (!isFooter)
-            const Text(
-              "OptiFlow",
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary,
-              ),
+          const Text(
+            "OptiFlow",
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textPrimary,
             ),
+          ),
         ],
       ),
     );

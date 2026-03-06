@@ -75,7 +75,12 @@ class LiveAlerts extends StatelessWidget {
     );
   }
 
-  Widget _buildAlertItem(IconData icon, String title, String subtitle, Color color) {
+  Widget _buildAlertItem(
+    IconData icon,
+    String title,
+    String subtitle,
+    Color color,
+  ) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -187,10 +192,7 @@ class RecentActivity extends StatelessWidget {
             margin: const EdgeInsets.only(top: 4),
             width: 8,
             height: 8,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
           const SizedBox(width: 12),
           Expanded(

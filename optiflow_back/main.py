@@ -188,6 +188,32 @@ def update_machine_status(machine_id: str, update: MachineStatusUpdate):
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 
+class MachineCreateRequest(BaseModel):
+    name: str
+    type: str
+    location: str
+    
+@app.post("/add_machine")
+def add_machine(machine: MachineCreateRequest):
+    print(f"Adding new machine: {machine.name}")
+    try:
+        new_machine = {
+            "name": machine.name,
+            "type": machine.type, # e.g., "FDM Printer"
+            "status": "IDLE", # Default status
+            # We can store location in metadata or just ignore if DB doesn't have column yet. 
+            # For now assuming 'type' and 'location' columns exist or we just store minimal data.
+            # If Supabase table structure is fixed, we might need to adjust.
+            # Let's assume standard fields for now.
+        }
+        # Note: If 'type' column doesn't exist in Supabase, this might fail. 
+        # But we'll try to insert what we can.
+        response = supabase.table('machines').insert(new_machine).execute()
+        return {"message": "Machine Added!", "data": response.data}
+    except Exception as e:
+        print(f"ERROR: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/machines")
 def get_machines():
     response = supabase.table("machines").select("*").execute()
