@@ -2,6 +2,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:optiflow_scheduler/screens/dashboard/dashboard_screen.dart';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:optiflow_scheduler/mobile/mobile_login_screen.dart';
+
 class DesktopEntry extends StatelessWidget {
   const DesktopEntry({super.key});
   @override
@@ -11,12 +14,13 @@ class DesktopEntry extends StatelessWidget {
 class MobileEntry extends StatelessWidget {
   const MobileEntry({super.key});
   @override
-  Widget build(BuildContext context) => const Scaffold(body: Center(child: Text("Mobile Login")));
+  Widget build(BuildContext context) => const MobileLoginScreen();
 }
 
 void main() {
-  runApp(const MyApp());
+  runApp(const ProviderScope(child: MyApp()));
 }
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
