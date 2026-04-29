@@ -7,6 +7,7 @@ import 'package:optiflow_scheduler/screens/dashboard/widgets/stat_card.dart';
 import 'package:optiflow_scheduler/screens/dashboard/widgets/utilization_chart.dart';
 import 'package:optiflow_scheduler/screens/machines_screen.dart';
 import 'package:optiflow_scheduler/screens/schedule_screen.dart';
+import 'package:optiflow_scheduler/screens/jobs_screen.dart';
 import 'package:optiflow_scheduler/screens/placeholder_screen.dart';
 import 'package:optiflow_scheduler/utils/app_colors.dart';
 
@@ -100,10 +101,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       case 2:
         return const ScheduleScreen();
       case 3:
-        return const PlaceholderScreen(
-          title: "Jobs",
-          icon: Icons.inventory_2_outlined,
-        );
+        return const JobsScreen();
       case 4:
         return const PlaceholderScreen(
           title: "Team",

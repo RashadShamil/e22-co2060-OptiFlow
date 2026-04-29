@@ -1,34 +1,25 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from typing import Optional, List
 from booking_manager import check_availability, supabase
-from typing import Optional
 
 app = FastAPI()
 
 # ------------------- MODELS -------------------
 
+# Keep these original models
 class BookingRequest(BaseModel):
     machine_id: str
     user_name: str
     start_time: str
     end_time: str
 
-
 class JobClaimRequest(BaseModel):
     job_id: str
-    student_name: str
-
-
-class JobCreateRequest(BaseModel):
-    title: str
-    price: int
-    deadline: str
-    estimated_hours: int
-
+    student_name: str  
 
 class MachineStatusUpdate(BaseModel):
     status: str
-
 
 class MachineCreateRequest(BaseModel):
     name: str
@@ -36,13 +27,49 @@ class MachineCreateRequest(BaseModel):
     price_per_hour: int
     image_url: str
 
-
 class JobSubmission(BaseModel):
     proof_url: str
     notes: str
 
 class JobStatusUpdate(BaseModel):
     status: str 
+
+# --- NEW OPTIFLOW MODELS (Sadurshika's Task) ---
+
+class TaskDependencyInput(BaseModel):
+    predecessor_index: int 
+    successor_index: int
+    mandatory_wait_minutes: Optional[int] = 0
+
+class TaskInput(BaseModel):
+    operation_type_id: Optional[str] = None
+    name: str
+    quantity_to_process: int
+
+class JobOrderInput(BaseModel):
+    title: str
+    client_name: Optional[str] = None
+    total_quantity: int
+    deadline: str 
+    created_by: Optional[str] = None
+    tasks: List[TaskInput]
+    dependencies: List[TaskDependencyInput]
+
+# --- INDIVIDUAL CRUD MODELS ---
+
+class SingleJobInput(BaseModel):
+    title: str
+    client_name: Optional[str] = None
+    total_quantity: int
+    deadline: str 
+    created_by: str 
+
+class SingleTaskInput(BaseModel):
+    job_id: str  # Notice this requires the Job ID so it knows where to attach!
+    operation_type_id: str 
+    name: str
+    quantity_to_process: int
+
 
 # ------------------- ROOT -------------------
 
@@ -55,7 +82,6 @@ def read_root():
 
 @app.post("/book_machine")
 def book_machine(request: BookingRequest):
-    # 🔧 Fixed typo: "Recieve" → "Receive"
     print(f"Receive request for {request.user_name}")
 
     is_clear = check_availability(
@@ -74,7 +100,6 @@ def book_machine(request: BookingRequest):
         "end_time": request.end_time
     }
 
-    # 🔧 Ensured .execute() is explicitly called
     supabase.table("bookings").insert(data_to_save).execute()
 
     return {
@@ -86,9 +111,7 @@ def book_machine(request: BookingRequest):
 # ------------------- JOB BOARD -------------------
 
 @app.get("/jobs")
-
 def get_jobs(status: Optional[str] = None):
-
     query = supabase.table('jobs').select("*")
 
     if status:
@@ -98,9 +121,9 @@ def get_jobs(status: Optional[str] = None):
     response = query.execute()
     return {"count": len(response.data), "jobs": response.data}
 
+
 @app.post("/claim_job")
 def claim_job(request: JobClaimRequest):
-    # 🔧 Fixed typo: "form" → "from"
     print(f"Claim request from {request.student_name} for job {request.job_id}")
 
     try:
@@ -113,7 +136,6 @@ def claim_job(request: JobClaimRequest):
             .execute()
         )
 
-        # 🔧 Safer empty-check instead of len(response.data) == 0
         if not response.data:
             raise HTTPException(status_code=400, detail="Job is already taken.")
 
@@ -130,43 +152,122 @@ def claim_job(request: JobClaimRequest):
         }
 
     except HTTPException:
-        # 🔧 Allows FastAPI to return correct error without converting to 500
         raise
     except Exception as e:
         print(f"ERROR: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 
+# --- NEW OPTIFLOW COMPLEX JOB CREATION (Sadurshika's Task) ---
+
 @app.post("/create_job")
-def create_job(job: JobCreateRequest):
-    print(f"Manager is posting a new job: {job.title}")
+def create_job(order: JobOrderInput):
+    print(f"Manager is posting a new complex job: {order.title}")
 
     try:
+        # Prevent foreign key constraint errors if using the dummy UI UUID
+        safe_created_by = order.created_by if order.created_by != "11111111-1111-1111-1111-111111111111" else None
+
+        # 1. Insert into the 'jobs' table
         new_job_data = {
-            "title": job.title,
-            "price": job.price,
-            "deadline": job.deadline,
-            "estimated_hours": job.estimated_hours,
-            "status": "OPEN"
+            "title": order.title,
+            "client_name": order.client_name,
+            "total_quantity": order.total_quantity,
+            "deadline": order.deadline,
+            "created_by": safe_created_by,
+            "status": "DRAFT" 
         }
-
-        response = supabase.table("jobs").insert(new_job_data).execute()
-
+        job_response = supabase.table("jobs").insert(new_job_data).execute()
+        new_job_id = job_response.data[0]['id'] 
+        
+        # 2. Insert into the 'tasks' table
+        task_uuid_map = {} 
+        
+        for index, task in enumerate(order.tasks):
+            # Prevent foreign key constraint errors for dummy UI operation types by using a valid fallback UUID
+            safe_op_id = task.operation_type_id if len(str(task.operation_type_id)) > 5 else "baa49214-b20a-461f-baf8-da09a83345fd"
+            
+            task_data = {
+                "job_id": new_job_id,
+                "operation_type_id": safe_op_id,
+                "name": task.name,
+                "quantity_to_process": task.quantity_to_process,
+                "status": "PENDING"
+            }
+            task_response = supabase.table("tasks").insert(task_data).execute()
+            task_uuid_map[index] = task_response.data[0]['id'] 
+            
+        # 3. Insert into the 'task_dependencies' table (The DAG)
+        dependency_inserts = []
+        for dep in order.dependencies:
+            dep_data = {
+                "predecessor_task_id": task_uuid_map[dep.predecessor_index],
+                "successor_task_id": task_uuid_map[dep.successor_index],
+                "mandatory_wait_minutes": dep.mandatory_wait_minutes
+            }
+            dependency_inserts.append(dep_data)
+            
+        if dependency_inserts:
+            supabase.table("task_dependencies").insert(dependency_inserts).execute()
+            
         return {
-            "message": "Job Posted!",
-            "job_details": response.data
+            "message": "Job Order and workflow successfully created!", 
+            "job_id": new_job_id
         }
 
     except Exception as e:
         print(f"ERROR: {str(e)}")
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/jobs")
+def create_single_job(job: SingleJobInput):
+    print(f"Creating standalone job: {job.title}")
+    try:
+        job_data = {
+            "title": job.title,
+            "client_name": job.client_name,
+            "total_quantity": job.total_quantity,
+            "deadline": job.deadline,
+            "created_by": job.created_by,
+            "status": "DRAFT"
+        }
+        response = supabase.table("jobs").insert(job_data).execute()
+        
+        return {
+            "message": "Job successfully created!",
+            "job_id": response.data[0]['id']
+        }
+    except Exception as e:
+        print(f"ERROR: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to create /api/jobs")
+
+@app.post("/api/tasks")
+def create_single_task(task: SingleTaskInput):
+    print(f"Adding task {task.name} to Job {task.job_id}")
+    try:
+        task_data = {
+            "job_id": task.job_id,
+            "operation_type_id": task.operation_type_id,
+            "name": task.name,
+            "quantity_to_process": task.quantity_to_process,
+            "status": "PENDING"
+        }
+        response = supabase.table("tasks").insert(task_data).execute()
+        
+        return {
+            "message": "Task successfully added to job!",
+            "task_id": response.data[0]['id']
+        }
+    except Exception as e:
+        print(f"ERROR: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to create /api/tasks")
+
 
 
 # ------------------- MACHINES -------------------
 
 @app.patch("/machines/{machine_id}")
 def update_machine_status(machine_id: str, update: MachineStatusUpdate):
-    # 🔧 Minor formatting + clarity
     print(f"Updating Machine {machine_id} to {update.status}")
 
     try:
@@ -188,36 +289,14 @@ def update_machine_status(machine_id: str, update: MachineStatusUpdate):
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 
-class MachineCreateRequest(BaseModel):
-    name: str
-    type: str
-    location: str
-    
-@app.post("/add_machine")
-def add_machine(machine: MachineCreateRequest):
-    print(f"Adding new machine: {machine.name}")
-    try:
-        new_machine = {
-            "name": machine.name,
-            "type": machine.type, # e.g., "FDM Printer"
-            "status": "IDLE", # Default status
-            # We can store location in metadata or just ignore if DB doesn't have column yet. 
-            # For now assuming 'type' and 'location' columns exist or we just store minimal data.
-            # If Supabase table structure is fixed, we might need to adjust.
-            # Let's assume standard fields for now.
-        }
-        # Note: If 'type' column doesn't exist in Supabase, this might fail. 
-        # But we'll try to insert what we can.
-        response = supabase.table('machines').insert(new_machine).execute()
-        return {"message": "Machine Added!", "data": response.data}
-    except Exception as e:
-        print(f"ERROR: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
 @app.get("/machines")
 def get_machines():
-    response = supabase.table("machines").select("*").execute()
-    return {"machines": response.data}
+    try:
+        response = supabase.table("resources").select("*").execute()
+        return {"machines": response.data}
+    except Exception as e:
+        print(f"ERROR: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
 
 
 @app.post("/create_machine")
@@ -248,7 +327,6 @@ def create_machine(machine: MachineCreateRequest):
 
 @app.post("/jobs/{job_id}/submit")
 def submit_job(job_id: str, submission: JobSubmission):
- 
     print(f"Job {job_id} submitted for review")
 
     try:
@@ -274,13 +352,7 @@ def submit_job(job_id: str, submission: JobSubmission):
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 
-
-
 @app.patch("/jobs/{job_id}")
 def update_job_status(job_id: str, update: JobStatusUpdate):
     response = supabase.table('jobs').update({"status": update.status}).eq("id", job_id).execute()
     return {"message": "Job Status Updated", "data": response.data}
-
-
-
-
