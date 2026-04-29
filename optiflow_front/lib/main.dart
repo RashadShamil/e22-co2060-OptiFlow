@@ -1,9 +1,8 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:optiflow_scheduler/screens/dashboard/dashboard_screen.dart';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:optiflow_scheduler/mobile/mobile_login_screen.dart';
+
+import 'package:optiflow_scheduler/slices/engine/dashboard/dashboard_screen.dart';
+import 'package:optiflow_scheduler/slices/worker/mobile_login_screen.dart';
 
 class DesktopEntry extends StatelessWidget {
   const DesktopEntry({super.key});
@@ -28,12 +27,17 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Opti',
+      title: 'OptiFlow',
       theme: ThemeData(primarySwatch: Colors.blue),
-      // THE MAGIC SWITCH
-      home: (Platform.isWindows || Platform.isMacOS || Platform.isLinux)
-          ? const DesktopEntry()
-          : const MobileEntry(),
+      home: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth >= 600) {
+            return const DesktopEntry();
+          } else {
+            return const MobileEntry();
+          }
+        },
+      ),
     );
   }
 }

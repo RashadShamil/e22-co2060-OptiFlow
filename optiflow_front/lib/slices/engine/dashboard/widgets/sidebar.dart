@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:optiflow_scheduler/utils/app_colors.dart';
+import 'package:optiflow_scheduler/core/utils/app_colors.dart';
 
 class Sidebar extends StatelessWidget {
   final int selectedIndex;

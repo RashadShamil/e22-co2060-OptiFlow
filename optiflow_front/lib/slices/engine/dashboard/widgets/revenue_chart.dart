@@ -1,6 +1,6 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:optiflow_scheduler/utils/app_colors.dart';
+import 'package:optiflow_scheduler/core/utils/app_colors.dart';
 
 class RevenueChart extends StatelessWidget {
   const RevenueChart({super.key});

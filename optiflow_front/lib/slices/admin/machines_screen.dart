@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:optiflow_scheduler/models/machine.dart';
-import 'package:optiflow_scheduler/services/api_service.dart';
-import 'package:optiflow_scheduler/utils/app_colors.dart';
-import 'package:optiflow_scheduler/screens/dashboard/widgets/machine_card.dart';
-import 'package:optiflow_scheduler/screens/add_machine_screen.dart';
+import 'package:optiflow_scheduler/core/models/machine.dart';
+import 'package:optiflow_scheduler/core/services/api_service.dart';
+import 'package:optiflow_scheduler/core/utils/app_colors.dart';
+import 'package:optiflow_scheduler/slices/engine/dashboard/widgets/machine_card.dart';
+import 'package:optiflow_scheduler/slices/admin/add_machine_screen.dart';
 
 class MachinesScreen extends StatefulWidget {
   const MachinesScreen({super.key});

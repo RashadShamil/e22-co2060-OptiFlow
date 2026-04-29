@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:optiflow_scheduler/screens/dashboard/widgets/activity_section.dart';
-import 'package:optiflow_scheduler/services/api_service.dart';
-import 'package:optiflow_scheduler/screens/dashboard/widgets/revenue_chart.dart';
-import 'package:optiflow_scheduler/screens/dashboard/widgets/sidebar.dart';
-import 'package:optiflow_scheduler/screens/dashboard/widgets/stat_card.dart';
-import 'package:optiflow_scheduler/screens/dashboard/widgets/utilization_chart.dart';
-import 'package:optiflow_scheduler/screens/machines_screen.dart';
-import 'package:optiflow_scheduler/screens/schedule_screen.dart';
-import 'package:optiflow_scheduler/screens/placeholder_screen.dart';
-import 'package:optiflow_scheduler/utils/app_colors.dart';
+import 'package:optiflow_scheduler/slices/engine/dashboard/widgets/activity_section.dart';
+import 'package:optiflow_scheduler/core/services/api_service.dart';
+import 'package:optiflow_scheduler/slices/engine/dashboard/widgets/revenue_chart.dart';
+import 'package:optiflow_scheduler/slices/engine/dashboard/widgets/sidebar.dart';
+import 'package:optiflow_scheduler/slices/engine/dashboard/widgets/stat_card.dart';
+import 'package:optiflow_scheduler/slices/engine/dashboard/widgets/utilization_chart.dart';
+import 'package:optiflow_scheduler/slices/admin/machines_screen.dart';
+import 'package:optiflow_scheduler/slices/engine/schedule_screen.dart';
+import 'package:optiflow_scheduler/slices/order/placeholder_screen.dart';
+import 'package:optiflow_scheduler/core/utils/app_colors.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});

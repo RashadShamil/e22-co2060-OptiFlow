@@ -1,30 +1,85 @@
 import 'dart:convert';
-import 'package:optiflow_scheduler/models/booking.dart';
+import 'dart:io';
+import 'package:optiflow_scheduler/core/models/booking.dart';
 import 'package:http/http.dart' as http;
-import 'package:optiflow_scheduler/models/job.dart';
-import 'package:optiflow_scheduler/models/machine.dart';
+import 'package:optiflow_scheduler/core/models/job.dart';
+import 'package:optiflow_scheduler/core/models/machine.dart';
 
 class ApiService {
-  // Use 127.0.0.1 for Windows/Desktop.
-  // If running on Android emulator, use 10.0.2.2
-  static const String baseUrl = "http://127.0.0.1:8000";
+  static String get baseUrl {
+    if (Platform.isAndroid) {
+      return "http://10.0.2.2:8000/api";
+    }
+    return "http://127.0.0.1:8000/api";
+  }
 
+  // ==========================================
+  // ENGINE SLICE
+  // ==========================================
+  Future<Map<String, dynamic>> optimizeJob(String jobId) async {
+    try {
+      final response = await http.post(Uri.parse("$baseUrl/optimize/$jobId"));
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        throw Exception("Failed to optimize job");
+      }
+    } catch (e) {
+      print("Error optimizing job: $e");
+      return {"status": "error"};
+    }
+  }
+
+  // ==========================================
+  // ORDER SLICE
+  // ==========================================
+  Future<void> createJob(Map<String, dynamic> jobData) async {
+    // POST /api/jobs
+  }
+
+  Future<void> createTask(Map<String, dynamic> taskData) async {
+    // POST /api/tasks
+  }
+
+  // ==========================================
+  // WORKER SLICE
+  // ==========================================
+  Future<List<dynamic>> getTasksForResource(String resourceId) async {
+    // GET /api/tasks?resource_id={id}
+    return [];
+  }
+
+  Future<void> updateTaskStatus(String taskId, String status) async {
+    // PATCH /api/tasks/{task_id}/status {"status": status}
+  }
+
+  // ==========================================
+  // ADMIN SLICE
+  // ==========================================
   Future<List<Machine>> fetchMachines() async {
     try {
-      final response = await http.get(Uri.parse("$baseUrl/machines"));
+      // Assuming backend maps /resources to machines
+      final response = await http.get(Uri.parse("$baseUrl/resources"));
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = json.decode(response.body);
-        final List<dynamic> machinesJson = data['machines'];
+        final List<dynamic> machinesJson = data['resources'] ?? data['machines'] ?? [];
         return machinesJson.map((json) => Machine.fromJson(json)).toList();
       } else {
         throw Exception("Failed to load machines");
       }
     } catch (e) {
       print("Error fetching machines: $e");
-      // Return empty list instead of crashing
       return [];
     }
+  }
+
+  Future<void> createResource(Map<String, dynamic> resourceData) async {
+    // POST /api/resources
+  }
+
+  Future<void> createCapability(Map<String, dynamic> capabilityData) async {
+    // POST /api/capabilities
   }
 
   Future<List<Job>> fetchJobs() async {
@@ -33,7 +88,7 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = json.decode(response.body);
-        final List<dynamic> jobsJson = data['jobs'];
+        final List<dynamic> jobsJson = data['jobs'] ?? [];
         return jobsJson.map((json) => Job.fromJson(json)).toList();
       } else {
         throw Exception("Failed to load jobs");

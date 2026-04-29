@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:optiflow_scheduler/models/machine.dart';
-import 'package:optiflow_scheduler/utils/app_colors.dart';
+import 'package:optiflow_scheduler/core/models/machine.dart';
+import 'package:optiflow_scheduler/core/utils/app_colors.dart';
 
 class MachineCard extends StatelessWidget {
   final Machine machine;
