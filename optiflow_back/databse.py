@@ -14,7 +14,8 @@ load_dotenv()
 url: str = os.environ.get("SUPABASE_URL")
 key: str = os.environ.get("SUPABASE_KEY")
 
-# 3. Create the single, centralized Supabase client.
+# 3. Create the single, centralized Supabase client.cd
+
 # By doing this here, every other file in the project (like routes.py 
 # and optimizer.py) can just import this one 'supabase' variable 
 # instead of creating a new connection every time.
