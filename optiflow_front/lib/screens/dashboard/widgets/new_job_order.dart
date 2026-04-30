@@ -381,7 +381,7 @@ class _NewJobOrderState extends State<NewJobOrder> {
               Expanded(
                 flex: 1,
                 child: DropdownButtonFormField<String>(
-                  value: _priority,
+                  initialValue: _priority,
                   decoration: _customInputDecoration('Priority', null),
                   dropdownColor: Colors.white,
                   items: ['High', 'Medium', 'Low'].map((String value) {
@@ -549,7 +549,7 @@ class _NewJobOrderState extends State<NewJobOrder> {
                     Expanded(
                       flex: 1,
                       child: DropdownButtonFormField<String>(
-                        value: task.operationType,
+                        initialValue: task.operationType,
                         decoration: _customInputDecoration(
                           'Operation Type',
                           null,
