@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:optiflow_scheduler/utils/app_colors.dart';
-import 'package:optiflow_scheduler/services/api_service.dart';
+import 'package:optiflow_scheduler/core/utils/app_colors.dart';
+import 'package:optiflow_scheduler/core/services/api_service.dart';
 
 class AddMachineScreen extends StatefulWidget {
   const AddMachineScreen({super.key});

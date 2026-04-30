@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:optiflow_scheduler/models/booking.dart';
-import 'package:optiflow_scheduler/models/machine.dart';
-import 'package:optiflow_scheduler/services/api_service.dart';
-import 'package:optiflow_scheduler/utils/app_colors.dart';
+import 'package:optiflow_scheduler/core/models/booking.dart';
+import 'package:optiflow_scheduler/core/models/machine.dart';
+import 'package:optiflow_scheduler/core/services/api_service.dart';
+import 'package:optiflow_scheduler/core/utils/app_colors.dart';
 
 class ScheduleScreen extends StatefulWidget {
   const ScheduleScreen({super.key});

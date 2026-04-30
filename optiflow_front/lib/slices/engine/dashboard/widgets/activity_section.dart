@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:optiflow_scheduler/utils/app_colors.dart';
+import 'package:optiflow_scheduler/core/utils/app_colors.dart';
 
 class LiveAlerts extends StatelessWidget {
   const LiveAlerts({super.key});
