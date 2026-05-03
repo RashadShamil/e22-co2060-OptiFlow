@@ -1,7 +1,7 @@
 import os
 from datetime import datetime, timedelta
 from ortools.sat.python import cp_model
-from app.database import supabase
+from databse import supabase
 
 # =====================================================================
 # PHASE 1: SYSTEM SETUP & DATA INGESTION

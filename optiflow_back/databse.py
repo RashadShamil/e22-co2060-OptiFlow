@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 # 1. Load the environment variables from the .env / .env.local file.
 # This keeps your secret keys safe and out of the public codebase.
-load_dotenv()
+load_dotenv('.env.local')
 
 # 2. Extract the URL and API Key
 url: str = os.environ.get("SUPABASE_URL")

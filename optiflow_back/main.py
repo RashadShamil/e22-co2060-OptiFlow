@@ -236,16 +236,13 @@ def create_job(order: JobOrderInput):
     print(f"Manager is posting a new complex job: {order.title}")
 
     try:
-        # Prevent foreign key constraint errors if using the dummy UI UUID
-        safe_created_by = order.created_by if order.created_by != "11111111-1111-1111-1111-111111111111" else None
-
         # 1. Insert into the 'jobs' table
         new_job_data = {
             "title": order.title,
             "client_name": order.client_name,
             "total_quantity": order.total_quantity,
             "deadline": order.deadline,
-            "created_by": safe_created_by,
+            "created_by": order.created_by,
             "status": "DRAFT" 
         }
         job_response = supabase.table("jobs").insert(new_job_data).execute()
@@ -255,12 +252,9 @@ def create_job(order: JobOrderInput):
         task_uuid_map = {} 
         
         for index, task in enumerate(order.tasks):
-            # Prevent foreign key constraint errors for dummy UI operation types by using a valid fallback UUID
-            safe_op_id = task.operation_type_id if len(str(task.operation_type_id)) > 5 else "baa49214-b20a-461f-baf8-da09a83345fd"
-            
             task_data = {
                 "job_id": new_job_id,
-                "operation_type_id": safe_op_id,
+                "operation_type_id": task.operation_type_id,
                 "name": task.name,
                 "quantity_to_process": task.quantity_to_process,
                 "status": "PENDING"

@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:optiflow_scheduler/core/models/booking.dart';
 import 'package:http/http.dart' as http;
 import 'package:optiflow_scheduler/core/models/job.dart';
@@ -7,8 +7,10 @@ import 'package:optiflow_scheduler/core/models/machine.dart';
 
 class ApiService {
   static String get baseUrl {
-    if (Platform.isAndroid) {
-      return "http://10.0.2.2:8000/api";
+    if (!kIsWeb) {
+      // If we are native (e.g. Android Emulator), you might need 10.0.2.2.
+      // But for desktop/web, 127.0.0.1 is standard.
+      return "http://127.0.0.1:8000/api";
     }
     return "http://127.0.0.1:8000/api";
   }
@@ -41,12 +43,35 @@ class ApiService {
     // POST /api/tasks
   }
 
+  Future<List<Map<String, dynamic>>> fetchOperationTypes() async {
+    try {
+      final response = await http.get(Uri.parse("$baseUrl/operation-types"));
+      if (response.statusCode == 200) {
+        return List<Map<String, dynamic>>.from(json.decode(response.body));
+      } else {
+        throw Exception("Failed to load operation types");
+      }
+    } catch (e) {
+      print("Error fetching operation types: $e");
+      return [];
+    }
+  }
+
   // ==========================================
   // WORKER SLICE
   // ==========================================
   Future<List<dynamic>> getTasksForResource(String resourceId) async {
-    // GET /api/tasks?resource_id={id}
-    return [];
+    try {
+      final response = await http.get(Uri.parse("$baseUrl/tasks?resource_id=$resourceId"));
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        throw Exception("Failed to load tasks for resource");
+      }
+    } catch (e) {
+      print("Error fetching tasks for resource: $e");
+      return [];
+    }
   }
 
   Future<void> updateTaskStatus(String taskId, String status) async {
@@ -62,8 +87,13 @@ class ApiService {
       final response = await http.get(Uri.parse("$baseUrl/resources"));
 
       if (response.statusCode == 200) {
-        final Map<String, dynamic> data = json.decode(response.body);
-        final List<dynamic> machinesJson = data['resources'] ?? data['machines'] ?? [];
+        final dynamic data = json.decode(response.body);
+        List<dynamic> machinesJson = [];
+        if (data is List) {
+          machinesJson = data.where((m) => m['type'] == 'MACHINE').toList();
+        } else if (data is Map) {
+          machinesJson = data['resources'] ?? data['machines'] ?? [];
+        }
         return machinesJson.map((json) => Machine.fromJson(json)).toList();
       } else {
         throw Exception("Failed to load machines");
@@ -99,101 +129,128 @@ class ApiService {
     }
   }
 
-  // Mock method for now since backend doesn't have full schedule endpoint yet
   Future<List<Booking>> fetchBookings() async {
-    // Return dummy data matching the design for demo purposes
-    await Future.delayed(const Duration(milliseconds: 500)); // Simulate network
-    final now = DateTime.now();
-    final today9am = DateTime(now.year, now.month, now.day, 9);
+    try {
+      final response = await http.get(Uri.parse("$baseUrl/schedule"));
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        return data.map<Booking>((json) {
+          final startTime = json['scheduled_start_time'] != null 
+              ? DateTime.parse(json['scheduled_start_time']).toLocal()
+              : DateTime.now();
+          final endTime = json['scheduled_end_time'] != null 
+              ? DateTime.parse(json['scheduled_end_time']).toLocal()
+              : startTime.add(const Duration(hours: 1));
+          
+          final int duration = endTime.difference(startTime).inHours;
+          
+          return Booking(
+            id: json['id']?.toString() ?? '',
+            machineId: json['assigned_resource_id']?.toString() ?? '',
+            machineName: json['resources']?['name']?.toString() ?? 'Unknown Resource',
+            jobTitle: json['jobs']?['title']?.toString() ?? json['name']?.toString() ?? 'Unknown Job',
+            userName: 'System', // Hardcoded until user auth is added
+            startTime: startTime,
+            durationHours: duration > 0 ? duration : 1, // ensure at least 1 hour block for UI visibility
+            priority: 'Medium', // Defaulting to Medium
+            status: json['status'] == 'CONFLICT' ? 'CONFLICT' : 'CONFIRMED',
+          );
+        }).toList();
+      } else {
+        throw Exception("Failed to load schedule");
+      }
+    } catch (e) {
+      print("Error fetching schedule: $e");
+      return [];
+    }
+  }
 
-    return [
-      Booking(
-        id: "1",
-        machineId: "1",
-        machineName: "Ultimaker S5",
-        jobTitle: "Housing Prototype v3",
-        userName: "Sarah Chen",
-        startTime: DateTime(now.year, now.month, now.day, 8),
-        durationHours: 3,
-        priority: "High",
-      ),
-      Booking(
-        id: "2",
-        machineId: "1",
-        machineName: "Ultimaker S5",
-        jobTitle: "Gear Assembly",
-        userName: "Mike Johnson",
-        startTime: DateTime(now.year, now.month, now.day, 11), // 11 AM
-        durationHours: 2,
-        priority: "Medium",
-      ),
-      Booking(
-        id: "3",
-        machineId: "2",
-        machineName: "Formlabs Form 3",
-        jobTitle: "Miniature Parts",
-        userName: "Emily Davis",
-        startTime: DateTime(now.year, now.month, now.day, 9, 30), // 9:30 AM
-        durationHours: 4,
-        priority: "Medium",
-      ),
-      Booking(
-        id: "4",
-        machineId: "3",
-        machineName: "Prusa i3 MK3",
-        jobTitle: "Bracket Set",
-        userName: "John Doe",
-        startTime: DateTime(now.year, now.month, now.day, 10), // 10 AM
-        durationHours: 3,
-        priority: "Low",
-      ),
-      Booking(
-        id: "5",
-        machineId: "3",
-        machineName: "Prusa i3 MK3",
-        jobTitle: "Emergency Job",
-        userName: "Admin",
-        startTime: DateTime(
-          now.year,
-          now.month,
-          now.day,
-          12,
-          30,
-        ), // 12:30 PM - Conflict
-        durationHours: 2,
-        priority: "High",
-        status: "CONFLICT",
-      ),
-      Booking(
-        id: "6",
-        machineId: "4",
-        machineName: "Ultimaker S3",
-        jobTitle: "Large Print Job",
-        userName: "User A",
-        startTime: DateTime(now.year, now.month, now.day, 8),
-        durationHours: 5,
-        priority: "Medium",
-      ),
-      Booking(
-        id: "7",
-        machineId: "5",
-        machineName: "Formlabs 3L",
-        jobTitle: "Dental Models",
-        userName: "Dr. Smith",
-        startTime: DateTime(now.year, now.month, now.day, 14), // 2 PM
-        durationHours: 3,
-        priority: "High",
-      ),
-      Booking(
-        id: "8",
-        machineId: "6",
-        machineName: "Stratasys F370",
-        jobTitle: "Enclosure Parts",
-        userName: "Team B",
-        startTime: DateTime(now.year, now.month, now.day, 9, 30),
-        durationHours: 4,
-        priority: "Medium",
-      ),
-    ];
+  Future<List<Map<String, dynamic>>> fetchHumanResources() async {
+    try {
+      final response = await http.get(Uri.parse("$baseUrl/resources"));
+      if (response.statusCode == 200) {
+        final dynamic raw = json.decode(response.body);
+        List<dynamic> data;
+        if (raw is List) {
+          data = raw;
+        } else if (raw is Map) {
+          data = raw['resources'] ?? raw['data'] ?? [];
+        } else {
+          data = [];
+        }
+        return data
+            .where((r) => r['type'] == 'HUMAN')
+            .map((e) => e as Map<String, dynamic>)
+            .toList();
+      }
+      return [];
+    } catch (e) {
+      print("Error fetching human resources: $e");
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchAllTasks() async {
+    try {
+      final response = await http.get(Uri.parse("$baseUrl/tasks"));
+      if (response.statusCode == 200) {
+        return List<Map<String, dynamic>>.from(json.decode(response.body));
+      }
+      return [];
+    } catch (e) {
+      print("Error fetching all tasks: $e");
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> fetchDashboardStats() async {
+    try {
+      final response = await http.get(Uri.parse("$baseUrl/dashboard-stats"));
+      if (response.statusCode == 200) {
+        return json.decode(response.body) as Map<String, dynamic>;
+      }
+      return {};
+    } catch (e) {
+      print("Error fetching dashboard stats: $e");
+      return {};
+    }
+  }
+
+  Future<List<Job>> fetchJobsFiltered(int days) async {
+    try {
+      final response = await http.get(Uri.parse("$baseUrl/analytics-jobs?days=$days"));
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        return data.map((j) => Job.fromJson(j)).toList();
+      }
+      return [];
+    } catch (e) {
+      print("Error fetching filtered jobs: $e");
+      return [];
+    }
+  }
+
+  Future<bool> createBooking({
+    required String machineId,
+    required String userName,
+    required String startTime,
+    required String endTime,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse("http://127.0.0.1:8000/book_machine"),
+        headers: {"Content-Type": "application/json"},
+        body: json.encode({
+          "machine_id": machineId,
+          "user_name": userName,
+          "start_time": startTime,
+          "end_time": endTime,
+        }),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print("Error creating booking: $e");
+      return false;
+    }
   }
 }

@@ -26,6 +26,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   }
 
   Future<void> _fetchData() async {
+    setState(() { _isLoading = true; });
     final machines = await _apiService.fetchMachines();
     final bookings = await _apiService.fetchBookings();
 
@@ -41,8 +42,15 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator(color: AppColors.primary));
     }
+
+    final dayBookings = _bookings.where((b) {
+      final d = b.startTime;
+      return d.year == _selectedDate.year &&
+          d.month == _selectedDate.month &&
+          d.day == _selectedDate.day;
+    }).toList();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(32.0),
@@ -51,7 +59,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
         children: [
           _buildHeader(),
           const SizedBox(height: 32),
-          _buildDateNavigator(),
+          _buildDateNavigator(dayBookings),
           const SizedBox(height: 32),
           _buildTimeline(),
         ],
@@ -69,9 +77,10 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
             Text(
               "Schedule",
               style: TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
+                fontSize: 36,
+                fontWeight: FontWeight.w800,
                 color: AppColors.textPrimary,
+                letterSpacing: -1,
               ),
             ),
             SizedBox(height: 8),
@@ -81,69 +90,328 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
             ),
           ],
         ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          decoration: BoxDecoration(
-            gradient: AppColors.primaryGradient,
-            borderRadius: BorderRadius.circular(8),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.primary.withOpacity(0.3),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: const Row(
-            children: [
-              Icon(Icons.add, color: Colors.white, size: 20),
-              SizedBox(width: 8),
-              Text(
-                "New Booking",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
+        GestureDetector(
+          onTap: () => _showNewBookingDialog(context),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            decoration: BoxDecoration(
+              gradient: AppColors.primaryGradient,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withOpacity(0.4),
+                  blurRadius: 12,
+                  offset: const Offset(0, 6),
                 ),
-              ),
-            ],
+              ],
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.add, color: Colors.white, size: 20),
+                SizedBox(width: 8),
+                Text(
+                  "New Booking",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildDateNavigator() {
+  void _showNewBookingDialog(BuildContext context) {
+    if (_machines.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("No machines available. Please add machines first."), backgroundColor: AppColors.warning),
+      );
+      return;
+    }
+
+    String? selectedMachineId = _machines.first.id;
+    DateTime? startDateTime;
+    DateTime? endDateTime;
+    final nameController = TextEditingController();
+    bool isSubmitting = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return AlertDialog(
+              backgroundColor: AppColors.surface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+                side: BorderSide(color: AppColors.surfaceLight.withOpacity(0.5)),
+              ),
+              title: const Text(
+                "New Machine Booking",
+                style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold, fontSize: 20),
+              ),
+              content: SizedBox(
+                width: 480,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // User / Operator name
+                    const Text("Operator Name", style: TextStyle(color: AppColors.textSecondary, fontSize: 13, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: nameController,
+                      style: const TextStyle(color: AppColors.textPrimary),
+                      decoration: InputDecoration(
+                        hintText: "e.g. Sarah Chen",
+                        hintStyle: TextStyle(color: AppColors.textSecondary.withOpacity(0.5)),
+                        filled: true,
+                        fillColor: AppColors.surfaceLight.withOpacity(0.4),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Machine selection
+                    const Text("Select Machine", style: TextStyle(color: AppColors.textSecondary, fontSize: 13, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceLight.withOpacity(0.4),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          isExpanded: true,
+                          value: selectedMachineId,
+                          dropdownColor: AppColors.surfaceLight,
+                          style: const TextStyle(color: AppColors.textPrimary, fontSize: 15),
+                          icon: const Icon(Icons.keyboard_arrow_down, color: AppColors.textSecondary),
+                          items: _machines.map((m) {
+                            return DropdownMenuItem<String>(
+                              value: m.id,
+                              child: Text(m.name),
+                            );
+                          }).toList(),
+                          onChanged: (val) {
+                            setDialogState(() { selectedMachineId = val; });
+                          },
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Date/time selection
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildDateTimePicker(
+                            ctx,
+                            label: "Start Time",
+                            value: startDateTime,
+                            onPicked: (dt) => setDialogState(() => startDateTime = dt),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildDateTimePicker(
+                            ctx,
+                            label: "End Time",
+                            value: endDateTime,
+                            onPicked: (dt) => setDialogState(() => endDateTime = dt),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text("Cancel", style: TextStyle(color: AppColors.textSecondary)),
+                ),
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: AppColors.primaryGradient,
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.3), blurRadius: 8)],
+                  ),
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    ),
+                    onPressed: isSubmitting ? null : () async {
+                      if (nameController.text.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please enter operator name"), backgroundColor: AppColors.error));
+                        return;
+                      }
+                      if (selectedMachineId == null || startDateTime == null || endDateTime == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please fill all fields"), backgroundColor: AppColors.error));
+                        return;
+                      }
+                      if (endDateTime!.isBefore(startDateTime!)) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("End time must be after start time"), backgroundColor: AppColors.error));
+                        return;
+                      }
+
+                      setDialogState(() => isSubmitting = true);
+                      final success = await _apiService.createBooking(
+                        machineId: selectedMachineId!,
+                        userName: nameController.text,
+                        startTime: startDateTime!.toUtc().toIso8601String(),
+                        endTime: endDateTime!.toUtc().toIso8601String(),
+                      );
+
+                      if (!mounted) return;
+                      Navigator.pop(ctx);
+                      if (success) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("Booking confirmed!"), backgroundColor: AppColors.success),
+                        );
+                        _fetchData(); // Refresh
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("Booking failed — slot may already be taken."), backgroundColor: AppColors.error),
+                        );
+                      }
+                    },
+                    child: isSubmitting
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        : const Text("Confirm Booking", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildDateTimePicker(
+    BuildContext ctx, {
+    required String label,
+    required DateTime? value,
+    required Function(DateTime) onPicked,
+  }) {
+    return GestureDetector(
+      onTap: () async {
+        final date = await showDatePicker(
+          context: ctx,
+          initialDate: value ?? _selectedDate,
+          firstDate: DateTime.now().subtract(const Duration(days: 1)),
+          lastDate: DateTime.now().add(const Duration(days: 365)),
+          builder: (context, child) => Theme(
+            data: ThemeData.dark().copyWith(
+              colorScheme: const ColorScheme.dark(
+                primary: AppColors.primary,
+                onPrimary: Colors.white,
+                surface: AppColors.surface,
+                onSurface: AppColors.textPrimary,
+              ), dialogTheme: DialogThemeData(backgroundColor: AppColors.surface),
+            ),
+            child: child!,
+          ),
+        );
+        if (date == null) return;
+
+        if (!ctx.mounted) return;
+        final time = await showTimePicker(
+          context: ctx,
+          initialTime: TimeOfDay.fromDateTime(value ?? DateTime.now()),
+          builder: (context, child) => Theme(
+            data: ThemeData.dark().copyWith(
+              colorScheme: const ColorScheme.dark(
+                primary: AppColors.primary,
+                onPrimary: Colors.white,
+                surface: AppColors.surface,
+                onSurface: AppColors.textPrimary,
+              ),
+            ),
+            child: child!,
+          ),
+        );
+        if (time == null) return;
+        onPicked(DateTime(date.year, date.month, date.day, time.hour, time.minute));
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(color: AppColors.textSecondary, fontSize: 13, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceLight.withOpacity(0.4),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.access_time, color: AppColors.primary, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    value != null ? DateFormat('MMM d, h:mm a').format(value) : "Pick date & time",
+                    style: TextStyle(
+                      color: value != null ? AppColors.textPrimary : AppColors.textSecondary.withOpacity(0.7),
+                      fontSize: 14,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDateNavigator(List<Booking> dayBookings) {
     return Row(
       children: [
         Expanded(
           flex: 2,
           child: Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade200),
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.surfaceLight.withOpacity(0.5)),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 15, offset: const Offset(0, 5)),
+              ],
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 IconButton(
-                  icon: const Icon(Icons.chevron_left),
+                  icon: const Icon(Icons.chevron_left, color: AppColors.textPrimary),
                   onPressed: () {
                     setState(() {
-                      _selectedDate = _selectedDate.subtract(
-                        const Duration(days: 1),
-                      );
+                      _selectedDate = _selectedDate.subtract(const Duration(days: 1));
                     });
                   },
                 ),
                 Row(
                   children: [
-                    const Icon(
-                      Icons.calendar_today,
-                      color: AppColors.primary,
-                      size: 20,
-                    ),
+                    const Icon(Icons.calendar_today, color: AppColors.primary, size: 20),
                     const SizedBox(width: 12),
                     Text(
                       DateFormat('EEEE, MMMM d, y').format(_selectedDate),
@@ -156,12 +424,10 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                   ],
                 ),
                 IconButton(
-                  icon: const Icon(Icons.chevron_right),
+                  icon: const Icon(Icons.chevron_right, color: AppColors.textPrimary),
                   onPressed: () {
                     setState(() {
-                      _selectedDate = _selectedDate.add(
-                        const Duration(days: 1),
-                      );
+                      _selectedDate = _selectedDate.add(const Duration(days: 1));
                     });
                   },
                 ),
@@ -173,53 +439,67 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
         Expanded(
           flex: 1,
           child: Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade200),
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.surfaceLight.withOpacity(0.5)),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 15, offset: const Offset(0, 5)),
+              ],
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Column(
+                Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    const Text(
                       "Today's Bookings",
-                      style: TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 12,
-                      ),
+                      style: TextStyle(color: AppColors.textSecondary, fontSize: 12, fontWeight: FontWeight.bold),
                     ),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 4),
                     Text(
-                      "9",
-                      style: TextStyle(
-                        fontSize: 24,
+                      "${dayBookings.length}",
+                      style: const TextStyle(
+                        fontSize: 28,
                         fontWeight: FontWeight.bold,
                         color: AppColors.textPrimary,
                       ),
                     ),
                   ],
                 ),
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.warning_amber_rounded,
-                      color: AppColors.error,
-                      size: 20,
+                if (dayBookings.any((b) => b.status == 'CONFLICT'))
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppColors.error.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppColors.error.withOpacity(0.3)),
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      "2 conflicts",
-                      style: TextStyle(
-                        color: AppColors.error,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 16),
+                        const SizedBox(width: 4),
+                        Text(
+                          "${dayBookings.where((b) => b.status == 'CONFLICT').length} conflict${dayBookings.where((b) => b.status == 'CONFLICT').length > 1 ? 's' : ''}",
+                          style: const TextStyle(color: AppColors.error, fontWeight: FontWeight.bold, fontSize: 12),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  )
+                else
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppColors.success.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Text(
+                      "No conflicts",
+                      style: TextStyle(color: AppColors.success, fontWeight: FontWeight.bold, fontSize: 12),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -231,24 +511,39 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   Widget _buildTimeline() {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.surfaceLight.withOpacity(0.5)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
       child: Column(
         children: [
           _buildTimelineHeader(),
-          const Divider(height: 1),
-          // Machine Rows
-          ..._machines.map((machine) => _buildMachineTimelineRow(machine)),
-          // Legend Footer
-          const Divider(height: 1),
+          Divider(height: 1, color: AppColors.surfaceLight.withOpacity(0.5)),
+          if (_machines.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(48.0),
+              child: Column(
+                children: [
+                  Icon(Icons.precision_manufacturing_outlined, size: 48, color: AppColors.textSecondary.withOpacity(0.3)),
+                  const SizedBox(height: 16),
+                  Text(
+                    "No machines registered yet.\nGo to Machines to add one.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: AppColors.textSecondary.withOpacity(0.7), fontStyle: FontStyle.italic),
+                  ),
+                ],
+              ),
+            )
+          else
+            ..._machines.map((machine) => _buildMachineTimelineRow(machine)),
+          Divider(height: 1, color: AppColors.surfaceLight.withOpacity(0.5)),
           _buildTimelineFooter(),
         ],
       ),
@@ -257,19 +552,17 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
 
   Widget _buildTimelineHeader() {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
       child: Row(
         children: [
-          const SizedBox(width: 200), // Space for Machine Name column
+          const SizedBox(width: 200),
           Expanded(
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: List.generate(11, (index) {
-                // 8 AM to 6 PM = 11 slots
                 final hour = 8 + index;
-                final ampm = hour < 12 ? "AM" : (hour == 12 ? "PM" : "PM");
+                final ampm = hour < 12 ? "AM" : "PM";
                 final hourDisplay = hour <= 12 ? hour : hour - 12;
-
                 return Expanded(
                   child: Center(
                     child: Text(
@@ -291,20 +584,21 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   }
 
   Widget _buildMachineTimelineRow(Machine machine) {
-    // Check if there are bookings for this machine
     final machineBookings = _bookings
-        .where((b) => b.machineId == machine.id)
+        .where((b) => b.machineId == machine.id &&
+            b.startTime.year == _selectedDate.year &&
+            b.startTime.month == _selectedDate.month &&
+            b.startTime.day == _selectedDate.day)
         .toList();
 
     return Container(
       height: 80,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: Colors.grey.shade100)),
+        border: Border(bottom: BorderSide(color: AppColors.surfaceLight.withOpacity(0.5))),
       ),
       child: Row(
         children: [
-          // Machine Info Column
           SizedBox(
             width: 200,
             child: Column(
@@ -313,44 +607,52 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
               children: [
                 Text(
                   machine.name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
-                  ),
+                  style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  machine.id.length > 5
-                      ? '5h booked'
-                      : '4h booked', // Mock utilization text
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: machine.status == 'ACTIVE'
+                        ? AppColors.success.withOpacity(0.15)
+                        : machine.status == 'IDLE'
+                            ? AppColors.warning.withOpacity(0.15)
+                            : AppColors.error.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    machine.status,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: machine.status == 'ACTIVE'
+                          ? AppColors.success
+                          : machine.status == 'IDLE'
+                              ? AppColors.warning
+                              : AppColors.error,
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-
-          // Timeline bar
           Expanded(
             child: Stack(
               children: [
-                // Grid lines background
                 Row(
                   children: List.generate(11, (index) {
                     return Expanded(
                       child: Container(
                         decoration: BoxDecoration(
                           border: Border(
-                            left: BorderSide(color: Colors.grey.shade100),
+                            left: BorderSide(color: AppColors.surfaceLight.withOpacity(0.2)),
                           ),
                         ),
                       ),
                     );
                   }),
                 ),
-                // Booking blocks
                 ...machineBookings.map(
                   (booking) => _buildBookingBlock(booking),
                 ),
@@ -363,54 +665,42 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   }
 
   Widget _buildBookingBlock(Booking booking) {
-    // Calculate position and width based on time
-    // Timeline is 8 AM to 6 PM (10 hours total span displayed + 1 for end marker) = 10 hours width
-    // Each hour is 1/11th of width approximately if we count slots,
-    // but header showed 11 labels. Let's assume 8AM is 0% and 6PM is 100%.
-    // Total span: 10 hours (8 to 18).
-
     final startHour = booking.startTime.hour + (booking.startTime.minute / 60);
-    final offsetStart = startHour - 8; // Offset from 8 AM
-    if (offsetStart < 0) return const SizedBox(); // Before 8 AM
+    final offsetStart = startHour - 8;
+    if (offsetStart < 0) return const SizedBox();
 
-    // Calculate percent position
-    // Total timeline width = 100%
-    // 1 hour = 10%
-
-    final leftPercent = offsetStart * 10; // 10% per hour
+    final leftPercent = offsetStart * 10;
     final widthPercent = booking.durationHours * 10;
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final totalWidth = constraints.maxWidth;
-        final left =
-            totalWidth *
-            (leftPercent / 100) /
-            1.1; // Adjust scale for 11 columns
+        final left = totalWidth * (leftPercent / 100) / 1.1;
         final width = totalWidth * (widthPercent / 100) / 1.1;
 
         Color color;
         if (booking.status == "CONFLICT") {
           color = AppColors.error;
         } else if (booking.priority == "High") {
-          color = const Color(0xFF0EA5E9); // Blue
+          color = const Color(0xFF0EA5E9);
         } else if (booking.priority == "Medium") {
-          color = const Color(0xFFD946EF); // Pink
+          color = AppColors.secondary;
         } else {
-          color = const Color(0xFFF97316); // Orange
+          color = const Color(0xFFF97316);
         }
 
         return Positioned(
           left: left,
-          top: 10,
-          bottom: 10,
-          width: width,
+          top: 8,
+          bottom: 8,
+          width: width.clamp(20.0, totalWidth),
           child: Container(
             margin: const EdgeInsets.symmetric(horizontal: 2),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
             decoration: BoxDecoration(
-              color: color,
+              color: color.withOpacity(0.85),
               borderRadius: BorderRadius.circular(8),
+              boxShadow: [BoxShadow(color: color.withOpacity(0.3), blurRadius: 6)],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -427,10 +717,10 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                   ),
                 ),
                 Text(
-                  "${booking.durationHours}h • ${booking.priority} Priority",
+                  "${booking.durationHours}h • ${booking.userName}",
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white, fontSize: 10),
+                  style: const TextStyle(color: Colors.white70, fontSize: 10),
                 ),
               ],
             ),
@@ -442,19 +732,19 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
 
   Widget _buildTimelineFooter() {
     return Padding(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(20),
       child: Row(
         children: [
-          const Icon(Icons.lightbulb_outline, color: Colors.orange, size: 16),
+          const Icon(Icons.lightbulb_outline, color: AppColors.warning, size: 16),
           const SizedBox(width: 8),
           const Text(
-            "Tip: Drag blocks to reschedule",
+            "Click \"New Booking\" to schedule a machine",
             style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
           ),
           const SizedBox(width: 24),
-          _buildLegendInd(AppColors.primary, "Active booking"),
+          _buildLegendInd(AppColors.secondary, "Booking"),
           const SizedBox(width: 16),
-          _buildLegendInd(AppColors.error, "Conflict (double-booking)"),
+          _buildLegendInd(AppColors.error, "Conflict"),
         ],
       ),
     );
@@ -466,16 +756,10 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
         Container(
           width: 12,
           height: 12,
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(3),
-          ),
+          decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(3)),
         ),
         const SizedBox(width: 8),
-        Text(
-          label,
-          style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
-        ),
+        Text(label, style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
       ],
     );
   }

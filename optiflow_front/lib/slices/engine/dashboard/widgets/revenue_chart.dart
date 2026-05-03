@@ -3,7 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:optiflow_scheduler/core/utils/app_colors.dart';
 
 class RevenueChart extends StatelessWidget {
-  const RevenueChart({super.key});
+  final List<double> weeklyRevenue;
+
+  const RevenueChart({
+    super.key,
+    required this.weeklyRevenue,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -37,7 +42,7 @@ class RevenueChart extends StatelessWidget {
             child: BarChart(
               BarChartData(
                 alignment: BarChartAlignment.spaceAround,
-                maxY: 16000,
+                maxY: weeklyRevenue.isEmpty ? 1000 : weeklyRevenue.reduce((a, b) => a > b ? a : b) * 1.2,
                 barTouchData: BarTouchData(
                   enabled: true,
                   touchTooltipData: BarTouchTooltipData(
@@ -129,13 +134,23 @@ class RevenueChart extends StatelessWidget {
                 ),
                 borderData: FlBorderData(show: false),
                 barGroups: [
-                  _makeBarGroup(0, 8500),
-                  _makeBarGroup(1, 12200),
-                  _makeBarGroup(2, 9800),
-                  _makeBarGroup(3, 14500),
-                  _makeBarGroup(4, 11200),
-                  _makeBarGroup(5, 7200, isSelected: true),
-                  _makeBarGroup(6, 13000),
+                  for (int i = 0; i < weeklyRevenue.length && i < 7; i++)
+                    BarChartGroupData(
+                      x: i,
+                      barRods: [
+                        BarChartRodData(
+                          toY: weeklyRevenue[i],
+                          color: AppColors.primary,
+                          width: 24,
+                          borderRadius: BorderRadius.circular(4),
+                          backDrawRodData: BackgroundBarChartRodData(
+                            show: true,
+                            toY: weeklyRevenue.isEmpty ? 1000 : weeklyRevenue.reduce((a, b) => a > b ? a : b) * 1.2,
+                            color: AppColors.background,
+                          ),
+                        ),
+                      ],
+                    ),
                 ],
               ),
             ),

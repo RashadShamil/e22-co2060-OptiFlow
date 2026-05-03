@@ -2,8 +2,9 @@
 # IMPORTS: Bringing in the tools we need
 # =====================================================================
 import uuid
-from datetime import datetime
-from fastapi import APIRouter, HTTPException
+from datetime import datetime, timedelta, timezone
+from typing import Optional
+from fastapi import APIRouter, HTTPException, Query
 
 # Import the database connection Sulakshan built
 from databse import supabase 
@@ -198,9 +199,92 @@ def optimize_job(job_id: str):
 
 
 # =====================================================================
-# SLICE 3: VIKASHAN'S WORKER EXECUTION
-# Webhooks for the Mobile Flutter App
+# DASHBOARD STATS ENDPOINT
 # =====================================================================
+
+@router.get("/dashboard-stats")
+def get_dashboard_stats():
+    """Returns live stats for the dashboard: offline machines, overdue jobs, recent activity."""
+    try:
+        # Offline / Idle machines
+        machines_res = supabase.table("resources").select("id, name, status, type").eq("type", "MACHINE").execute()
+        machines = machines_res.data or []
+        offline_machines = [m for m in machines if m.get("status") in ("OFFLINE", "IDLE")]
+
+        # Overdue jobs: deadline < now and status != COMPLETED
+        now_iso = datetime.now(timezone.utc).isoformat()
+        jobs_res = supabase.table("jobs").select("id, title, deadline, status, created_at").execute()
+        jobs = jobs_res.data or []
+        overdue_jobs = [
+            j for j in jobs
+            if j.get("deadline") and j.get("deadline") < now_iso
+            and j.get("status") not in ("COMPLETED", "REVIEW")
+        ]
+
+        # Recent activity: last 5 completed tasks with job & resource info
+        recent_res = supabase.table("tasks") \
+            .select("id, name, status, completed_at, jobs(title), resources(name)") \
+            .eq("status", "COMPLETED") \
+            .order("completed_at", desc=True) \
+            .limit(5) \
+            .execute()
+        recent_tasks = recent_res.data or []
+
+        # Recent jobs created in last 24h
+        yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
+        new_jobs_res = supabase.table("jobs") \
+            .select("id, title, created_at, status") \
+            .gt("created_at", yesterday) \
+            .order("created_at", desc=True) \
+            .limit(5) \
+            .execute()
+        new_jobs = new_jobs_res.data or []
+
+        return {
+            "offline_machines": offline_machines,
+            "offline_count": len(offline_machines),
+            "overdue_jobs": overdue_jobs,
+            "overdue_count": len(overdue_jobs),
+            "recent_tasks": recent_tasks,
+            "new_jobs": new_jobs,
+        }
+    except Exception as e:
+        print(f"ERROR dashboard-stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/analytics-jobs")
+def get_analytics_jobs(days: int = Query(30, ge=1, le=365)):
+    """Returns jobs created within the last N days for analytics filtering."""
+    try:
+        since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+        res = supabase.table("jobs").select("*").gt("created_at", since).execute()
+        return res.data or []
+    except Exception as e:
+        print(f"ERROR analytics-jobs: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# =====================================================================
+# SLICE 3: VIKASHAN'S WORKER EXECUTION & SCHEDULE
+# =====================================================================
+
+@router.get("/schedule")
+def get_schedule():
+    """Fetches all scheduled tasks to display on the global schedule/calendar."""
+    # Fetch tasks that have moved past PENDING
+    res = supabase.table("tasks").select("*, jobs(title), resources(name)").neq("status", "PENDING").execute()
+    return res.data
+
+@router.get("/tasks")
+def get_tasks(resource_id: Optional[str] = None):
+    """Fetches tasks, optionally filtered by resource_id for worker dashboards."""
+    query = supabase.table("tasks").select("*, jobs(title), resources(name)")
+    if resource_id:
+        query = query.eq("assigned_resource_id", resource_id)
+    res = query.execute()
+    return res.data
+
 
 @router.patch("/tasks/{task_id}/status")
 def update_task_status(task_id: str, body: dict):

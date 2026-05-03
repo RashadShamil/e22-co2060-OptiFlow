@@ -152,21 +152,22 @@ class _MachinesScreenState extends State<MachinesScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             height: 48,
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.grey.shade300),
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.surfaceLight.withOpacity(0.5)),
             ),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.search, color: AppColors.textSecondary),
-                SizedBox(width: 12),
+                const Icon(Icons.search, color: AppColors.textSecondary),
+                const SizedBox(width: 12),
                 Expanded(
                   child: TextField(
                     decoration: InputDecoration(
                       hintText: "Search machines...",
                       border: InputBorder.none,
-                      hintStyle: TextStyle(color: AppColors.textSecondary),
+                      hintStyle: TextStyle(color: AppColors.textSecondary.withOpacity(0.5)),
                     ),
+                    style: const TextStyle(color: AppColors.textPrimary),
                   ),
                 ),
               ],
@@ -178,9 +179,9 @@ class _MachinesScreenState extends State<MachinesScreen> {
           height: 48,
           padding: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey.shade300),
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.surfaceLight.withOpacity(0.5)),
           ),
           child: const Row(
             children: [

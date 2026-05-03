@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:optiflow_scheduler/screens/dashboard/widgets/new_job_order.dart';
-import 'package:optiflow_scheduler/utils/app_colors.dart';
+import 'package:optiflow_scheduler/slices/engine/dashboard/widgets/new_job_order.dart';
+import 'package:optiflow_scheduler/core/utils/app_colors.dart';
 
 class JobsScreen extends StatelessWidget {
   const JobsScreen({super.key});

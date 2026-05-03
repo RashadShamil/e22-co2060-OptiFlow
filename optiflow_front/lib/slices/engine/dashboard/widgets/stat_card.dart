@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:optiflow_scheduler/core/utils/app_colors.dart';
 
-class StatCard extends StatelessWidget {
+class StatCard extends StatefulWidget {
   final String title;
   final String value;
   final IconData icon;
   final Color iconColor;
   final double percentage;
   final String comparisonText;
-  final bool isIncreasePositive; // If true, +% is green; else red (e.g., downtime)
+  final bool isIncreasePositive; 
 
   const StatCard({
     super.key,
@@ -22,86 +22,120 @@ class StatCard extends StatelessWidget {
   });
 
   @override
+  State<StatCard> createState() => _StatCardState();
+}
+
+class _StatCardState extends State<StatCard> {
+  bool _isHovering = false;
+
+  @override
   Widget build(BuildContext context) {
-    // Determine color based on percentage sign and isIncreasePositive
-    final isPositiveChange = percentage >= 0;
-    final color = (isPositiveChange == isIncreasePositive)
+    final isPositiveChange = widget.percentage >= 0;
+    final color = (isPositiveChange == widget.isIncreasePositive)
         ? AppColors.success
         : AppColors.error;
 
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovering = true),
+      onExit: (_) => setState(() => _isHovering = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: _isHovering ? AppColors.surfaceLight : AppColors.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: _isHovering ? AppColors.accent.withOpacity(0.5) : Colors.transparent,
+            width: 1,
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 14,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: iconColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icon, color: iconColor, size: 20),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
+          boxShadow: [
+            BoxShadow(
+              color: _isHovering ? AppColors.accent.withOpacity(0.2) : Colors.black.withOpacity(0.2),
+              blurRadius: _isHovering ? 20 : 10,
+              offset: const Offset(0, 8),
             ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Icon(
-                isPositiveChange ? Icons.call_made : Icons.call_received,
-                color: color,
-                size: 16,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                "${percentage.abs()}%",
-                style: TextStyle(
-                  color: color,
-                  fontWeight: FontWeight.bold,
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    widget.title,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 4),
-              Text(
-                comparisonText,
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 12,
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: widget.iconColor.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: widget.iconColor.withOpacity(0.3)),
+                  ),
+                  child: Icon(widget.icon, color: widget.iconColor, size: 20),
                 ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            Text(
+              widget.value,
+              style: const TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textPrimary,
+                letterSpacing: -0.5,
               ),
-            ],
-          ),
-        ],
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        isPositiveChange ? Icons.trending_up : Icons.trending_down,
+                        color: color,
+                        size: 14,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        "${widget.percentage.abs()}%",
+                        style: TextStyle(
+                          color: color,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  widget.comparisonText,
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

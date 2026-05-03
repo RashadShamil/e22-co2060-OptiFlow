@@ -9,7 +9,7 @@ class MobileCalendarScreen extends StatefulWidget {
 }
 
 class _MobileCalendarScreenState extends State<MobileCalendarScreen> {
-  DateTime _focusedDay = DateTime.now();
+  final DateTime _focusedDay = DateTime.now();
   DateTime _selectedDay = DateTime.now();
 
   // Helper to get days in month

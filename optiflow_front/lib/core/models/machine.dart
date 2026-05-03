@@ -34,26 +34,27 @@ class Machine {
   });
 
   factory Machine.fromJson(Map<String, dynamic> json) {
-    String status = json['status'] ?? 'UNKNOWN';
-    
-    // Simulate extra data for UI demo purposes since backend is simple
-    // In a real app, these would come from the API
-    bool isBusy = status == "ACTIVE" || status == "BUSY";
-    
+    final String status = json['status'] ?? 'UNKNOWN';
+    final String rawId = json['id']?.toString() ?? '';
+    final String name = json['name']?.toString() ?? 'Unknown Machine';
+
+    final bool isBusy = status == "ACTIVE";
+    // Utilization: 100% if active, 50% if idle, 0% if offline
+    final int utilization = status == "ACTIVE" ? 80 : status == "IDLE" ? 30 : 0;
+
     return Machine(
-      id: json['id'] ?? '',
-      name: json['name'] ?? 'Unknown Machine',
+      id: rawId,
+      name: name,
       status: status,
-      type: json['type'] ?? "FDM Printer", // Default if missing
-      location: "Zone A - Station ${json['id'].toString().substring(0,1)}",
-      utilization: 45 + (json['name'].toString().length * 2), // Fake calc
-      completedJobs: 100 + (json['name'].toString().length * 5),
-      
-      // Simulate active job if status is ACTIVE
-      currentJobTitle: isBusy ? "Prototype Housing v2" : null,
-      currentJobUser: isBusy ? "Sarah Chen" : null,
-      progress: isBusy ? 67 : null,
-      timeLeft: isBusy ? "34m remaining" : null,
+      type: "Machine",
+      location: "Workshop Floor",
+      utilization: utilization,
+      completedJobs: 0,
+
+      currentJobTitle: isBusy ? "In Progress" : null,
+      currentJobUser: null,
+      progress: isBusy ? 50 : null,
+      timeLeft: null,
     );
   }
 }

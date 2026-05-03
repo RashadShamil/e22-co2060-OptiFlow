@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-// Ensure these paths match your folder structure
-// import '../theme/mobile_theme.dart'; 
+import 'package:flutter/services.dart';
 import 'mobile_dashboard_screen.dart';
-import 'mobile_dashboard_screen.dart'; // If they are in the same folder
 
 class MobileLoginScreen extends StatefulWidget {
   const MobileLoginScreen({super.key});
@@ -12,170 +10,150 @@ class MobileLoginScreen extends StatefulWidget {
 }
 
 class _MobileLoginScreenState extends State<MobileLoginScreen> {
-  bool _isLoading = false;
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
+  // Hardcoded resources for demo purposes
+  final List<Map<String, String>> _resources = [
+    {'id': 'resource-uuid-1', 'name': 'Machine Operator A', 'role': 'Folding'},
+    {'id': 'resource-uuid-2', 'name': 'Printer B', 'role': 'Printing'},
+    {'id': 'resource-uuid-3', 'name': 'Cutter C', 'role': 'Cutting'},
+  ];
 
-  void _handleLogin() async {
-    setState(() => _isLoading = true);
-    
-    // Simulate Supabase Auth Latency
-    await Future.delayed(const Duration(seconds: 2));
-    
-    if (mounted) {
-      setState(() => _isLoading = false);
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const MobileDashboardScreen()),
-      );
-    }
+  void _selectResource(String resourceId) {
+    HapticFeedback.lightImpact();
+    Navigator.pushReplacement(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => MobileDashboardScreen(resourceId: resourceId),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          const begin = Offset(0.0, 1.0);
+          const end = Offset.zero;
+          const curve = Curves.easeInOutQuart;
+          var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+          var offsetAnimation = animation.drive(tween);
+          return SlideTransition(position: offsetAnimation, child: child);
+        },
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A), // Professional Slate Dark
-      body: Stack(
-        children: [
-          // Subtle Tech Gradient Background instead of floating circles
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: RadialGradient(
-                  center: Alignment.topRight,
-                  radius: 1.5,
-                  colors: [
-                    const Color(0xFF1E293B),
-                    const Color(0xFF0F172A),
-                  ],
+      backgroundColor: const Color(0xFFF7F7F9),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 60),
+              Center(
+                child: Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2B2B2B),
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  child: const Icon(Icons.layers_rounded, color: Colors.white, size: 40),
                 ),
               ),
-            ),
-          ),
-          
-          SafeArea(
-            child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 30.0),
-                child: Column(
-                  children: [
-                    // Branding
-                    const Icon(Icons.layers_outlined, size: 60, color: Color(0xFF38BDF8)),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'OPTIFLOW',
-                      style: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
-                        letterSpacing: 4.0,
-                      ),
-                    ),
-                    const Text(
-                      'OPERATOR PORTAL',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF38BDF8),
-                        letterSpacing: 3.0,
-                      ),
-                    ),
-                    const SizedBox(height: 50),
-
-                    // Login Form Container
-                    Container(
-                      padding: const EdgeInsets.all(24.0),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.03),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.white.withOpacity(0.1)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text("Sign In", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 20),
-                          
-                          _buildTextField(
-                            label: "Email Address",
-                            icon: Icons.alternate_email,
-                            controller: _emailController,
-                          ),
-                          const SizedBox(height: 20),
-                          
-                          _buildTextField(
-                            label: "Password",
-                            icon: Icons.lock_outline,
-                            controller: _passwordController,
-                            obscureText: true,
-                          ),
-                          const SizedBox(height: 30),
-
-                          // Professional Action Button
-                          SizedBox(
-                            width: double.infinity,
-                            height: 55,
-                            child: ElevatedButton(
-                              onPressed: _isLoading ? null : _handleLogin,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF38BDF8),
-                                foregroundColor: const Color(0xFF0F172A),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                elevation: 0,
-                              ),
-                              child: _isLoading 
-                                ? const SizedBox(
-                                    height: 20, 
-                                    width: 20, 
-                                    child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0F172A))
-                                  ) 
-                                : const Text('ACCESS DASHBOARD', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2)),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+              const SizedBox(height: 40),
+              const Text(
+                'Welcome to\nOptiFlow',
+                style: TextStyle(
+                  fontSize: 40,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF2B2B2B),
+                  letterSpacing: -1,
+                  height: 1.1,
                 ),
               ),
-            ),
+              const SizedBox(height: 12),
+              Text(
+                'Select your station to view your shift.',
+                style: TextStyle(
+                  fontSize: 18,
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 48),
+              Expanded(
+                child: ListView.separated(
+                  itemCount: _resources.length,
+                  separatorBuilder: (context, index) => const SizedBox(height: 16),
+                  itemBuilder: (context, index) {
+                    final resource = _resources[index];
+                    return _buildResourceCard(
+                      name: resource['name']!,
+                      role: resource['role']!,
+                      onTap: () => _selectResource(resource['id']!),
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildTextField({
-    required String label,
-    required IconData icon,
-    required TextEditingController controller,
-    bool obscureText = false,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(color: Colors.blueGrey, fontSize: 12)),
-        const SizedBox(height: 8),
-        TextField(
-          controller: controller,
-          obscureText: obscureText,
-          style: const TextStyle(color: Colors.white),
-          decoration: InputDecoration(
-            prefixIcon: Icon(icon, color: Colors.blueGrey, size: 20),
-            filled: true,
-            fillColor: Colors.white.withOpacity(0.05),
-            contentPadding: const EdgeInsets.symmetric(vertical: 16),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+  Widget _buildResourceCard({required String name, required String role, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 24,
+              offset: const Offset(0, 8),
             ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFF38BDF8)),
-            ),
-          ),
+          ],
         ),
-      ],
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF7F7F9),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Icon(Icons.precision_manufacturing_rounded, color: Color(0xFF2B2B2B)),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF2B2B2B),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    role,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[500],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Colors.grey),
+          ],
+        ),
+      ),
     );
   }
 }

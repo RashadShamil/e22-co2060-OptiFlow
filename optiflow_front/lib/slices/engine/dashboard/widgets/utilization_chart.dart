@@ -3,10 +3,22 @@ import 'package:flutter/material.dart';
 import 'package:optiflow_scheduler/core/utils/app_colors.dart';
 
 class UtilizationChart extends StatelessWidget {
-  const UtilizationChart({super.key});
+  final int activeMachines;
+  final int idleMachines;
+  final int offlineMachines;
+
+  const UtilizationChart({
+    super.key,
+    required this.activeMachines,
+    required this.idleMachines,
+    required this.offlineMachines,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final int totalMachines = activeMachines + idleMachines + offlineMachines;
+    final double activePercentage = totalMachines == 0 ? 0 : (activeMachines / totalMachines) * 100;
+    
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -41,37 +53,57 @@ class UtilizationChart extends StatelessWidget {
                     sectionsSpace: 0,
                     centerSpaceRadius: 70,
                     startDegreeOffset: -90,
-                    sections: [
-                      PieChartSectionData(
-                        color: const Color(0xFFD946EF), // Pink
-                        value: 68,
-                        title: '',
-                        radius: 20,
-                        showTitle: false,
-                      ),
-                      PieChartSectionData(
-                        color: AppColors.background,
-                        value: 32,
-                        title: '',
-                        radius: 20,
-                        showTitle: false,
-                      ),
+                    sections: totalMachines == 0 
+                      ? [
+                          PieChartSectionData(
+                            color: AppColors.textSecondary.withOpacity(0.2),
+                            value: 100,
+                            title: '',
+                            radius: 20,
+                            showTitle: false,
+                          )
+                        ]
+                      : [
+                      if (activeMachines > 0)
+                        PieChartSectionData(
+                          color: const Color(0xFFD946EF), // Pink
+                          value: activeMachines.toDouble(),
+                          title: '',
+                          radius: 20,
+                          showTitle: false,
+                        ),
+                      if (idleMachines > 0)
+                        PieChartSectionData(
+                          color: AppColors.warning,
+                          value: idleMachines.toDouble(),
+                          title: '',
+                          radius: 20,
+                          showTitle: false,
+                        ),
+                      if (offlineMachines > 0)
+                        PieChartSectionData(
+                          color: AppColors.error,
+                          value: offlineMachines.toDouble(),
+                          title: '',
+                          radius: 20,
+                          showTitle: false,
+                        ),
                     ],
                   ),
                 ),
-                const Center(
+                Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        "68%",
-                        style: TextStyle(
+                        "${activePercentage.toStringAsFixed(0)}%",
+                        style: const TextStyle(
                           fontSize: 32,
                           fontWeight: FontWeight.bold,
                           color: AppColors.textPrimary,
                         ),
                       ),
-                      Text(
+                      const Text(
                         "Active",
                         style: TextStyle(
                           fontSize: 14,
@@ -85,11 +117,11 @@ class UtilizationChart extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 24),
-          _buildLegendItem("Active Machines", "11 of 16", AppColors.textPrimary),
+          _buildLegendItem("Active Machines", "$activeMachines of $totalMachines", AppColors.textPrimary),
           const SizedBox(height: 8),
-          _buildLegendItem("Idle", "5", AppColors.textSecondary),
+          _buildLegendItem("Idle", "$idleMachines", AppColors.warning),
           const SizedBox(height: 8),
-          _buildLegendItem("Offline", "2", AppColors.error),
+          _buildLegendItem("Offline", "$offlineMachines", AppColors.error),
         ],
       ),
     );

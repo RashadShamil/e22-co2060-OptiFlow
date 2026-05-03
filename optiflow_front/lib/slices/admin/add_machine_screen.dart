@@ -14,7 +14,6 @@ class AddMachineScreen extends StatefulWidget {
 class _AddMachineScreenState extends State<AddMachineScreen> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _locationController = TextEditingController();
   String _selectedType = "FDM Printer";
   bool _isSubmitting = false;
 
@@ -34,14 +33,14 @@ class _AddMachineScreenState extends State<AddMachineScreen> {
     });
 
     try {
-      final url = Uri.parse("${ApiService.baseUrl}/add_machine");
+      final url = Uri.parse("${ApiService.baseUrl}/resources");
       final response = await http.post(
         url,
         headers: {"Content-Type": "application/json"},
         body: json.encode({
-          "name": _nameController.text,
-          "type": _selectedType,
-          "location": _locationController.text,
+          "name": "$_selectedType: ${_nameController.text}",
+          "type": "MACHINE",
+          "status": "ACTIVE",
         }),
       );
 
@@ -75,10 +74,10 @@ class _AddMachineScreenState extends State<AddMachineScreen> {
       appBar: AppBar(
         title: const Text(
           "Add New Machine",
-          style: TextStyle(color: AppColors.textPrimary),
+          style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold),
         ),
-        backgroundColor: Colors.white,
-        elevation: 1,
+        backgroundColor: AppColors.surface,
+        elevation: 0,
         iconTheme: const IconThemeData(color: AppColors.textPrimary),
       ),
       body: Center(
@@ -86,10 +85,12 @@ class _AddMachineScreenState extends State<AddMachineScreen> {
           constraints: const BoxConstraints(maxWidth: 500),
           padding: const EdgeInsets.all(32),
           child: Card(
+            color: AppColors.surface,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: AppColors.surfaceLight.withOpacity(0.3)),
             ),
-            elevation: 4,
+            elevation: 10,
             child: Padding(
               padding: const EdgeInsets.all(32),
               child: Form(
@@ -109,36 +110,35 @@ class _AddMachineScreenState extends State<AddMachineScreen> {
                     const SizedBox(height: 24),
                     TextFormField(
                       controller: _nameController,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: "Machine Name",
+                        labelStyle: const TextStyle(color: AppColors.textSecondary),
                         hintText: "e.g. Ultimaker S5 #3",
-                        border: OutlineInputBorder(),
+                        hintStyle: TextStyle(color: AppColors.textSecondary.withOpacity(0.5)),
+                        filled: true,
+                        fillColor: AppColors.surfaceLight.withOpacity(0.3),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                       ),
+                      style: const TextStyle(color: AppColors.textPrimary),
                       validator: (value) =>
                           value!.isEmpty ? "Please enter a name" : null,
                     ),
                     const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
                       initialValue: _selectedType,
-                      decoration: const InputDecoration(
+                      dropdownColor: AppColors.surfaceLight,
+                      style: const TextStyle(color: AppColors.textPrimary),
+                      decoration: InputDecoration(
                         labelText: "Machine Type",
-                        border: OutlineInputBorder(),
+                        labelStyle: const TextStyle(color: AppColors.textSecondary),
+                        filled: true,
+                        fillColor: AppColors.surfaceLight.withOpacity(0.3),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                       ),
                       items: _machineTypes.map((type) {
                         return DropdownMenuItem(value: type, child: Text(type));
                       }).toList(),
                       onChanged: (val) => setState(() => _selectedType = val!),
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _locationController,
-                      decoration: const InputDecoration(
-                        labelText: "Location / Zone",
-                        hintText: "e.g. Zone A - Station 4",
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) =>
-                          value!.isEmpty ? "Please enter a location" : null,
                     ),
                     const SizedBox(height: 32),
                     SizedBox(
