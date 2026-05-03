@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../core/api_service.dart';
+import 'package:optiflow_scheduler/core/services/supabase_service.dart';
 import '../core/app_theme.dart';
 import '../models/machine_model.dart';
 import '../widgets/machine_card.dart';
@@ -31,7 +31,8 @@ class MachineMarketScreenState extends State<MachineMarketScreen> {
     if (!mounted) return;
     setState(() { _loading = true; _error = null; });
     try {
-      final raw = await ApiService.instance.fetchMachines();
+      // Fetch machines directly from Supabase — no FastAPI needed.
+      final raw = await SupabaseService.instance.fetchMachines();
       final machines = raw.map(MachineModel.fromJson).toList();
       if (mounted) setState(() { _machines = machines; _loading = false; });
     } catch (e) {

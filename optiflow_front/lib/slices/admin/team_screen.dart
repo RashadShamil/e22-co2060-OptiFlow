@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:optiflow_scheduler/core/utils/app_colors.dart';
 import 'package:optiflow_scheduler/core/services/api_service.dart';
+import 'package:optiflow_scheduler/core/services/supabase_service.dart';
 
 class TeamScreen extends StatefulWidget {
   const TeamScreen({super.key});
@@ -12,7 +13,6 @@ class TeamScreen extends StatefulWidget {
 }
 
 class _TeamScreenState extends State<TeamScreen> {
-  final ApiService _apiService = ApiService();
   List<Map<String, dynamic>> _teamMembers = [];
   bool _isLoading = true;
 
@@ -20,6 +20,7 @@ class _TeamScreenState extends State<TeamScreen> {
   void initState() {
     super.initState();
     _fetchTeam();
+    
   }
 
   /// Extracts role from name format "Name (Role)" — falls back to "Team Member"
@@ -35,7 +36,7 @@ class _TeamScreenState extends State<TeamScreen> {
   }
 
   Future<void> _fetchTeam() async {
-    final resources = await _apiService.fetchHumanResources();
+    final resources = await SupabaseService.instance.fetchHumanResources();
 
     final mapped = resources.map((r) {
       final rawName = r['name']?.toString() ?? 'Unknown';
@@ -470,7 +471,206 @@ class _TeamScreenState extends State<TeamScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.more_vert, color: AppColors.textSecondary),
-            onPressed: () {},
+            onPressed: () => _showEditMemberDialog(context, member),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Edit member dialog ───────────────────────────────────────────────────
+  void _showEditMemberDialog(BuildContext context, Map<String, dynamic> member) {
+    final nameCtrl = TextEditingController(text: _displayName(member['name']));
+    final roles = ['Operator', 'Supervisor', 'Technician', 'Machine Operator', 'Quality Inspector', 'Logistics'];
+    String selectedRole = member['role'] as String;
+    String selectedStatus = member['status'] as String;
+    if (!roles.contains(selectedRole)) selectedRole = 'Operator';
+    bool isSubmitting = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: AppColors.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: BorderSide(color: AppColors.surfaceLight.withOpacity(0.5)),
+          ),
+          title: Row(children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.15), borderRadius: BorderRadius.circular(8)),
+              child: const Icon(Icons.edit_rounded, color: AppColors.primary, size: 20),
+            ),
+            const SizedBox(width: 12),
+            const Text('Edit Team Member', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold, fontSize: 18)),
+          ]),
+          content: SizedBox(
+            width: 400,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Full Name', style: TextStyle(color: AppColors.textSecondary, fontSize: 13, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: nameCtrl,
+                  style: const TextStyle(color: AppColors.textPrimary),
+                  decoration: InputDecoration(
+                    hintText: 'e.g. Sarah Chen',
+                    hintStyle: TextStyle(color: AppColors.textSecondary.withOpacity(0.5)),
+                    filled: true,
+                    fillColor: AppColors.surfaceLight.withOpacity(0.3),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 2)),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Text('Role', style: TextStyle(color: AppColors.textSecondary, fontSize: 13, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(color: AppColors.surfaceLight.withOpacity(0.3), borderRadius: BorderRadius.circular(12)),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      isExpanded: true,
+                      value: selectedRole,
+                      dropdownColor: AppColors.surfaceLight,
+                      style: const TextStyle(color: AppColors.textPrimary, fontSize: 15),
+                      icon: const Icon(Icons.keyboard_arrow_down, color: AppColors.textSecondary),
+                      items: roles.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
+                      onChanged: (v) { if (v != null) setDialogState(() => selectedRole = v); },
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Text('Status', style: TextStyle(color: AppColors.textSecondary, fontSize: 13, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: ['Active', 'Idle', 'Offline'].map((s) {
+                    final isSel = selectedStatus == s;
+                    final c = s == 'Active' ? AppColors.success : s == 'Idle' ? AppColors.warning : AppColors.textSecondary;
+                    return GestureDetector(
+                      onTap: () => setDialogState(() => selectedStatus = s),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: isSel ? c.withOpacity(0.2) : AppColors.surfaceLight.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: isSel ? c : AppColors.surfaceLight.withOpacity(0.4), width: isSel ? 2 : 1),
+                        ),
+                        child: Text(s, style: TextStyle(color: isSel ? c : AppColors.textSecondary, fontWeight: FontWeight.w600, fontSize: 13)),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
+            ),
+            // Delete button
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _showDeleteMemberConfirm(context, member);
+              },
+              child: const Text('Remove', style: TextStyle(color: AppColors.error)),
+            ),
+            Container(
+              decoration: BoxDecoration(
+                gradient: AppColors.primaryGradient,
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.3), blurRadius: 8)],
+              ),
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                ),
+                onPressed: isSubmitting ? null : () async {
+                  final name = nameCtrl.text.trim();
+                  if (name.isEmpty) return;
+                  setDialogState(() => isSubmitting = true);
+                  // Store role embedded: "Name (Role)"
+                  final storedName = '$name ($selectedRole)';
+                  // Map display status to DB status
+                  final dbStatus = selectedStatus == 'Active' ? 'ACTIVE' : selectedStatus == 'Idle' ? 'IDLE' : 'OFFLINE';
+                  try {
+                    await SupabaseService.instance.updateTeamMember(
+                      id: member['id'].toString(),
+                      name: storedName,
+                      status: dbStatus,
+                    );
+                    if (!ctx.mounted) return;
+                    Navigator.pop(ctx);
+                    _fetchTeam();
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Team member updated!'), backgroundColor: AppColors.success),
+                      );
+                    }
+                  } catch (e) {
+                    setDialogState(() => isSubmitting = false);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error),
+                      );
+                    }
+                  }
+                },
+                child: isSubmitting
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : const Text('Save Changes', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDeleteMemberConfirm(BuildContext context, Map<String, dynamic> member) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Remove Member?', style: TextStyle(color: AppColors.textPrimary)),
+        content: Text(
+          'Remove "${_displayName(member['name'] as String)}" from the team? This cannot be undone.',
+          style: const TextStyle(color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary))),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              try {
+                await SupabaseService.instance.deleteMachine(member['id'].toString());
+                _fetchTeam();
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Member removed.'), backgroundColor: AppColors.warning),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error),
+                  );
+                }
+              }
+            },
+            child: const Text('Remove', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),

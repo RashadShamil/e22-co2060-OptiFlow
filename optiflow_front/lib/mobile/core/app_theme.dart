@@ -9,27 +9,37 @@ class AppColors {
   AppColors._();
 
   // ── Surfaces ────────────────────────────────────────────────────────────────
-  static const Color background   = Color(0xFFF7F7F9); // Page background
+  static const Color background   = Color(0xFFF5F4FA); // Soft lavender-tinted white
   static const Color cardSurface  = Color(0xFFFFFFFF); // Floating card
   static const Color bottomSheet  = Color(0xFFFFFFFF);
 
-  // ── Brand ───────────────────────────────────────────────────────────────────
-  static const Color primary      = Color(0xFFFF385C); // Airbnb coral
-  static const Color primaryLight = Color(0xFFFF6B85);
+  // ── Brand — muted purple/indigo matching the desktop + logo ─────────────────
+  // Desktop uses #8B5CF6 (vibrant violet). We tone it down for mobile:
+  // a slightly darker, more desaturated indigo that reads as "professional" not "neon".
+  static const Color primary      = Color(0xFF7C5DBC); // Muted violet (logo purple, toned down)
+  static const Color primaryLight = Color(0xFF9B7FD4); // Lighter tint for hover/accent
+  static const Color primaryDark  = Color(0xFF5B3F99); // Deeper shade for pressed states
+
+  // Gradient matching the logo swirl (purple → dusty rose-pink)
+  static const LinearGradient brandGradient = LinearGradient(
+    colors: [Color(0xFF7C5DBC), Color(0xFFB85BA8)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
 
   // ── Text ────────────────────────────────────────────────────────────────────
-  static const Color textPrimary   = Color(0xFF222222);
-  static const Color textSecondary = Color(0xFF717171);
-  static const Color textDisabled  = Color(0xFFAAAAAA);
+  static const Color textPrimary   = Color(0xFF1A1730); // Deep navy (not pure black)
+  static const Color textSecondary = Color(0xFF6B6882); // Muted slate-purple
+  static const Color textDisabled  = Color(0xFFB0AEC4); // Light muted purple-grey
 
   // ── Status ──────────────────────────────────────────────────────────────────
   static const Color scheduled  = Color(0xFFF5A623); // Warm amber
-  static const Color inProgress = Color(0xFF4A90E2); // Cool blue
-  static const Color completed  = Color(0xFF2ECC71); // Green
-  static const Color offline    = Color(0xFFE74C3C); // Red
+  static const Color inProgress = Color(0xFF5B8DEF); // Softer blue
+  static const Color completed  = Color(0xFF27AE72); // Muted emerald (matches desktop success)
+  static const Color offline    = Color(0xFFE05252); // Muted rose-red
 
   // ── Borders / Dividers ──────────────────────────────────────────────────────
-  static const Color divider = Color(0xFFEBEBEB);
+  static const Color divider = Color(0xFFE8E6F0); // Soft purple-tinted divider
 }
 
 class AppTheme {
@@ -56,7 +66,7 @@ class AppTheme {
     boxShadow: cardShadow,
   );
 
-  /// Pill-shaped elevated button style (primary coral)
+  /// Pill-shaped elevated button style (primary purple — matches desktop + logo)
   static ButtonStyle pillButtonStyle({Color? bg, Color? fg}) =>
     ElevatedButton.styleFrom(
       backgroundColor: bg ?? AppColors.primary,
@@ -68,6 +78,12 @@ class AppTheme {
       minimumSize: const Size(double.infinity, 60),
       textStyle: GoogleFonts.inter(fontSize: 17, fontWeight: FontWeight.w700),
     );
+
+  /// Soft purple tint decoration used for subtle highlight containers
+  static BoxDecoration get primaryTintDecoration => BoxDecoration(
+    color: AppColors.primary.withOpacity(0.08),
+    borderRadius: BorderRadius.circular(radiusSmall),
+  );
 
   /// Full app ThemeData
   static ThemeData get theme => ThemeData(

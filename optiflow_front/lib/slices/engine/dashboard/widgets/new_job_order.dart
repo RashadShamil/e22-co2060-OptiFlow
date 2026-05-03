@@ -22,7 +22,8 @@ class TaskItem {
 }
 
 class NewJobOrder extends StatefulWidget {
-  const NewJobOrder({super.key});
+  final VoidCallback? onJobCreated;
+  const NewJobOrder({super.key, this.onJobCreated});
 
   @override
   State<NewJobOrder> createState() => _NewJobOrderState();
@@ -267,6 +268,7 @@ class _NewJobOrderState extends State<NewJobOrder> {
             _taskIdCounter = 1;
             _deadline = null;
           });
+          widget.onJobCreated?.call(); // Notify parent to refresh list
         }
       } else {
         if (mounted) {

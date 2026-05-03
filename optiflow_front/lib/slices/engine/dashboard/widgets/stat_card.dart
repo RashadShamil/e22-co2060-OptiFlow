@@ -125,11 +125,15 @@ class _StatCardState extends State<StatCard> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  widget.comparisonText,
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 12,
+                Expanded(
+                  child: Text(
+                    widget.comparisonText,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],

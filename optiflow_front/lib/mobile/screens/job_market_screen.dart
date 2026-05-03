@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../core/api_service.dart';
+import 'package:optiflow_scheduler/core/services/supabase_service.dart';
 import '../core/app_theme.dart';
 import '../models/job_model.dart';
 import '../widgets/job_card.dart';
@@ -30,8 +30,16 @@ class _JobMarketScreenState extends State<JobMarketScreen> {
     if (!mounted) return;
     setState(() { _loading = true; _error = null; });
     try {
-      final raw = await ApiService.instance.fetchJobs(status: 'OPEN');
-      final jobs = raw.map(JobModel.fromJson).toList();
+      // Fetch ALL jobs from Supabase directly (no status filter).
+      // Seeded jobs are DRAFT — if we filtered for OPEN they'd never appear.
+      final raw = await SupabaseService.instance.fetchJobsWithTasks();
+      final jobs = raw.map((json) {
+        return JobModel.fromJson({
+          ...json,
+          // Expose task count for the job card
+          'task_count': (json['tasks'] as List?)?.length ?? 0,
+        });
+      }).toList();
       if (mounted) setState(() { _jobs = jobs; _loading = false; });
     } catch (e) {
       if (mounted) setState(() { _error = e.toString(); _loading = false; });

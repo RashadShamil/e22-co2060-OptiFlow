@@ -39,6 +39,59 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     }
   }
 
+  Future<void> _cancelBooking(Booking booking) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(children: [
+          const Icon(Icons.warning_amber_rounded, color: AppColors.error),
+          const SizedBox(width: 8),
+          const Text('Cancel Booking?', style: TextStyle(color: AppColors.textPrimary)),
+        ]),
+        content: Text(
+          'Cancel "${booking.jobTitle}" on this machine? This will free the slot and remove the conflict.',
+          style: const TextStyle(color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Keep It', style: TextStyle(color: AppColors.textSecondary)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Cancel Booking', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final success = await _apiService.deleteBooking(booking.id);
+    if (!mounted) return;
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Booking cancelled — conflict resolved.'),
+          backgroundColor: AppColors.success,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      _fetchData();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not cancel — FastAPI may be offline.'),
+          backgroundColor: AppColors.warning,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -671,6 +724,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
 
     final leftPercent = offsetStart * 10;
     final widthPercent = booking.durationHours * 10;
+    final isConflict = booking.status == "CONFLICT";
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -679,7 +733,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
         final width = totalWidth * (widthPercent / 100) / 1.1;
 
         Color color;
-        if (booking.status == "CONFLICT") {
+        if (isConflict) {
           color = AppColors.error;
         } else if (booking.priority == "High") {
           color = const Color(0xFF0EA5E9);
@@ -693,36 +747,67 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
           left: left,
           top: 8,
           bottom: 8,
-          width: width.clamp(20.0, totalWidth),
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 2),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.85),
-              borderRadius: BorderRadius.circular(8),
-              boxShadow: [BoxShadow(color: color.withOpacity(0.3), blurRadius: 6)],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  booking.jobTitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 11,
+          width: width.clamp(48.0, totalWidth < 48.0 ? 48.0 : totalWidth),
+          child: GestureDetector(
+            onTap: isConflict ? () => _cancelBooking(booking) : null,
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              decoration: BoxDecoration(
+                color: color.withOpacity(isConflict ? 0.95 : 0.85),
+                borderRadius: BorderRadius.circular(8),
+                border: isConflict
+                    ? Border.all(color: Colors.white.withOpacity(0.4), width: 1.5)
+                    : null,
+                boxShadow: [BoxShadow(color: color.withOpacity(0.4), blurRadius: 8)],
+              ),
+              child: Stack(
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (isConflict)
+                        const Row(
+                          children: [
+                            Icon(Icons.warning_amber_rounded, color: Colors.white, size: 10),
+                            SizedBox(width: 3),
+                            Text('CONFLICT', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 9)),
+                          ],
+                        ),
+                      Text(
+                        booking.jobTitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
+                      ),
+                      Text(
+                        "${booking.durationHours}h • ${booking.userName}",
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Colors.white70, fontSize: 10),
+                      ),
+                    ],
                   ),
-                ),
-                Text(
-                  "${booking.durationHours}h • ${booking.userName}",
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white70, fontSize: 10),
-                ),
-              ],
+                  // Cancel ✕ button only on CONFLICT
+                  if (isConflict)
+                    Positioned(
+                      top: 0,
+                      right: 0,
+                      child: GestureDetector(
+                        onTap: () => _cancelBooking(booking),
+                        child: Container(
+                          padding: const EdgeInsets.all(3),
+                          decoration: const BoxDecoration(
+                            color: Colors.white24,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.close, color: Colors.white, size: 11),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         );

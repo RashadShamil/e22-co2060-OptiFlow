@@ -63,3 +63,8 @@ class CapabilityUpdate(BaseModel):
     processing_rate_per_hr: Optional[float] = Field(None, gt=0)
     setup_time_minutes: Optional[int] = None
     cost_per_hour: Optional[float] = Field(None, gt=0)
+
+class OptimizationRequest(BaseModel):
+    # If the Flutter app doesn't send them, default to 70% Time / 30% Cost
+    alpha: int = 70  
+    beta: int = 30

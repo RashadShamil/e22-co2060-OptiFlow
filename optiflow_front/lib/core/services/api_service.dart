@@ -253,4 +253,17 @@ class ApiService {
       return false;
     }
   }
+
+  /// Cancels / deletes a booking by ID.
+  Future<bool> deleteBooking(String bookingId) async {
+    try {
+      final response = await http.delete(
+        Uri.parse("$baseUrl/bookings/$bookingId"),
+      );
+      return response.statusCode == 200 || response.statusCode == 204;
+    } catch (e) {
+      print("Error deleting booking: $e");
+      return false;
+    }
+  }
 }

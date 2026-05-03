@@ -90,7 +90,7 @@ class _LoginScreenState extends State<LoginScreen>
       backgroundColor: Colors.white,
       body: Stack(
         children: [
-          // ── Gradient top decoration ────────────────────────────────────────
+          // ── Gradient top decoration — purple → dusty rose, matching logo + desktop ──
           Positioned(
             top: 0, left: 0, right: 0,
             child: Container(
@@ -99,7 +99,8 @@ class _LoginScreenState extends State<LoginScreen>
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [Color(0xFFFF385C), Color(0xFFFF6B85)],
+                  // Muted purple → dusty rose-pink (pulled directly from logo swirl)
+                  colors: [Color(0xFF5B3F99), Color(0xFF9B5EA8)],
                 ),
               ),
             ),
@@ -145,24 +146,29 @@ class _LoginScreenState extends State<LoginScreen>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Logo icon circle
+                            // Logo — actual logo.png asset
                             Container(
-                              width: 56, height: 56,
+                              width: 64, height: 64,
                               decoration: BoxDecoration(
                                 color: Colors.white,
-                                borderRadius: BorderRadius.circular(16),
+                                borderRadius: BorderRadius.circular(18),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withOpacity(0.15),
-                                    blurRadius: 20,
+                                    color: AppColors.primary.withOpacity(0.25),
+                                    blurRadius: 24,
                                     offset: const Offset(0, 8),
                                   ),
                                 ],
                               ),
-                              child: const Icon(
-                                Icons.layers_rounded,
-                                color: AppColors.primary,
-                                size: 32,
+                              padding: const EdgeInsets.all(6),
+                              child: Image.asset(
+                                'assets/images/logo.png',
+                                fit: BoxFit.contain,
+                                errorBuilder: (_, __, ___) => const Icon(
+                                  Icons.blur_circular,
+                                  color: AppColors.primary,
+                                  size: 36,
+                                ),
                               ),
                             ),
                             const SizedBox(height: 24),

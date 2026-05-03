@@ -309,3 +309,29 @@ def update_task_status(task_id: str, body: dict):
         
     # Return success so the Flutter app knows it can update its UI
     return {"message": f"Task updated to {status}", "task": res.data[0]}
+
+@router.post("/optimize/{job_id}")
+def optimize_job(job_id: str, request: OptimizationRequest): 
+    try:
+        project_start_time = datetime.now()
+        
+        # 2. Pass alpha and beta into the engine
+        result = run_optimization_engine(
+            job_id, 
+            project_start_time, 
+            request.alpha, 
+            request.beta
+        )
+        
+        if result["status"] == "success":
+            return {
+                "message": "Schedule Optimized!", 
+                "makespan_minutes": result["makespan_minutes"],
+                "total_cost": result["total_cost"] # Return the cost to the UI!
+            }
+        else:
+            raise HTTPException(status_code=400, detail="Could not find a valid schedule.")
+            
+    except Exception as e:
+        print(f"Engine Error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Optimization Engine Failed")

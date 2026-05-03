@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:optiflow_scheduler/core/utils/app_colors.dart';
-import 'package:optiflow_scheduler/core/services/api_service.dart';
+import 'package:optiflow_scheduler/core/services/supabase_service.dart';
 
 class LiveAlerts extends StatefulWidget {
   const LiveAlerts({super.key});
@@ -10,7 +10,6 @@ class LiveAlerts extends StatefulWidget {
 }
 
 class _LiveAlertsState extends State<LiveAlerts> {
-  final ApiService _api = ApiService();
   bool _isLoading = true;
   List<dynamic> _offlineMachines = [];
   List<dynamic> _overdueJobs = [];
@@ -22,7 +21,7 @@ class _LiveAlertsState extends State<LiveAlerts> {
   }
 
   Future<void> _fetchAlerts() async {
-    final stats = await _api.fetchDashboardStats();
+    final stats = await SupabaseService.instance.fetchDashboardStats();
     if (mounted) {
       setState(() {
         _offlineMachines = (stats['offline_machines'] as List?) ?? [];
@@ -165,7 +164,6 @@ class RecentActivity extends StatefulWidget {
 }
 
 class _RecentActivityState extends State<RecentActivity> {
-  final ApiService _api = ApiService();
   bool _isLoading = true;
   List<dynamic> _recentTasks = [];
   List<dynamic> _newJobs = [];
@@ -177,7 +175,7 @@ class _RecentActivityState extends State<RecentActivity> {
   }
 
   Future<void> _fetchActivity() async {
-    final stats = await _api.fetchDashboardStats();
+    final stats = await SupabaseService.instance.fetchDashboardStats();
     if (mounted) {
       setState(() {
         _recentTasks = (stats['recent_tasks'] as List?) ?? [];

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../core/api_service.dart';
+import 'package:optiflow_scheduler/core/services/supabase_service.dart';
 import '../core/app_theme.dart';
 import '../core/auth_service.dart';
 import '../models/task_model.dart';
@@ -47,12 +47,22 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() { _loading = true; _error = null; });
 
     try {
-      final userId = AuthService.instance.currentUser?.id ?? 'demo-user';
-      final raw = await ApiService.instance.fetchTasks(userId);
-      final tasks = raw.map(TaskModel.fromJson).toList();
-      // Sort: IN_PROGRESS first, then SCHEDULED
+      // Fetch all tasks from Supabase directly — works without FastAPI.
+      // For MVP: shows the whole factory floor view (all tasks, all machines).
+      final raw = await SupabaseService.instance.fetchAllTasks();
+      final tasks = raw.map((json) {
+        // Remap Supabase join shape → TaskModel.fromJson expected shape
+        return TaskModel.fromJson({
+          ...json,
+          'job_title': (json['jobs'] as Map?)?['title'],
+          'resource_name': (json['resources'] as Map?)?['name'],
+          'operation_type_id': (json['operation_types'] as Map?)?['name'] ?? json['operation_type_id'],
+        });
+      }).toList();
+
+      // Sort: IN_PROGRESS first, then PENDING, then SCHEDULED, then COMPLETED
       tasks.sort((a, b) {
-        const order = {'IN_PROGRESS': 0, 'SCHEDULED': 1, 'COMPLETED': 2};
+        const order = {'IN_PROGRESS': 0, 'PENDING': 1, 'SCHEDULED': 2, 'COMPLETED': 3};
         return (order[a.status] ?? 9).compareTo(order[b.status] ?? 9);
       });
       if (mounted) setState(() { _tasks = tasks; _loading = false; });
@@ -77,7 +87,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final name = AuthService.instance.displayName;
     final inProgress = _tasks.where((t) => t.status == 'IN_PROGRESS').toList();
-    final scheduled  = _tasks.where((t) => t.status == 'SCHEDULED').toList();
+    // Show PENDING and SCHEDULED tasks together in the UP NEXT section
+    final pending = _tasks.where((t) => t.status == 'PENDING' || t.status == 'SCHEDULED').toList();
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -205,18 +216,18 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ],
 
-              // "Up Next" list
-              if (scheduled.isNotEmpty) ...[
-                _sectionHeader('UP NEXT'),
+              // "Up Next" list — PENDING + SCHEDULED
+              if (pending.isNotEmpty) ...[
+                _sectionHeader('UP NEXT — ${pending.length} TASK${pending.length > 1 ? 'S' : ''}'),
                 SliverPadding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   sliver: SliverList(
                     delegate: SliverChildBuilderDelegate(
                       (_, i) => TaskCard(
-                        task: scheduled[i],
-                        onTap: () => _openTaskSheet(scheduled[i]),
+                        task: pending[i],
+                        onTap: () => _openTaskSheet(pending[i]),
                       ),
-                      childCount: scheduled.length,
+                      childCount: pending.length,
                     ),
                   ),
                 ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:optiflow_scheduler/core/utils/app_colors.dart';
 import 'package:optiflow_scheduler/core/services/api_service.dart';
+import 'package:optiflow_scheduler/core/services/supabase_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -23,12 +24,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
     "Notifications",
     "Security",
     "Preferences",
+    "Operations",  // Skills Matrix — real Supabase data
   ];
+
+  List<Map<String, dynamic>> _capabilities = [];
+  bool _capsLoading = true;
 
   @override
   void initState() {
     super.initState();
     _fetchProfile();
+    // Capabilities are loaded lazily when the Operations tab is first opened.
+  }
+
+  Future<void> _fetchCapabilities() async {
+    if (!_capsLoading) return; // Already loaded
+    final caps = await SupabaseService.instance.fetchCapabilities();
+    if (mounted) setState(() { _capabilities = caps; _capsLoading = false; });
   }
 
   Future<void> _fetchProfile() async {
@@ -123,6 +135,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             setState(() {
                               _selectedTabIndex = index;
                             });
+                            // Lazy-load capabilities only when Operations tab is first opened
+                            if (index == 4 && _capsLoading) {
+                              _fetchCapabilities();
+                            }
                           },
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 200),
@@ -214,16 +230,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Widget _buildTabContent() {
     switch (_selectedTabIndex) {
-      case 0:
-        return _buildProfileTab();
-      case 1:
-        return _buildNotificationsTab();
-      case 2:
-        return _buildSecurityTab();
-      case 3:
-        return _buildPreferencesTab();
-      default:
-        return _buildProfileTab();
+      case 0: return _buildProfileTab();
+      case 1: return _buildNotificationsTab();
+      case 2: return _buildSecurityTab();
+      case 3: return _buildPreferencesTab();
+      case 4: return _buildOperationsTab();
+      default: return _buildProfileTab();
     }
   }
 
@@ -423,6 +435,153 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _buildSaveButton(),
           ],
         ),
+      ],
+    );
+  }
+
+  Widget _buildOperationsTab() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Skills Matrix",
+          style: TextStyle(
+            fontSize: 24, fontWeight: FontWeight.bold,
+            color: AppColors.textPrimary, letterSpacing: -0.5,
+          ),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          "What each machine can do, its throughput, and operating costs.",
+          style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+        ),
+        const SizedBox(height: 24),
+        if (_capsLoading)
+          const Center(child: CircularProgressIndicator(color: AppColors.primary))
+        else if (_capabilities.isEmpty)
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Text(
+                'No capabilities found.',
+                style: TextStyle(
+                  color: AppColors.textSecondary.withOpacity(0.6),
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ),
+          )
+        else ...[
+          // Table header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.1),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+            ),
+            child: const Row(
+              children: [
+                Expanded(flex: 3, child: Text('Machine', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13))),
+                Expanded(flex: 3, child: Text('Operation Type', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13))),
+                Expanded(flex: 2, child: Text('Rate / hr', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13))),
+                Expanded(flex: 2, child: Text('Setup (min)', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13))),
+                Expanded(flex: 2, child: Text('Cost / hr', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13))),
+              ],
+            ),
+          ),
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.surfaceLight.withOpacity(0.1),
+              border: Border.all(color: AppColors.surfaceLight.withOpacity(0.4)),
+              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
+            ),
+            child: ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _capabilities.length,
+              separatorBuilder: (_, __) =>
+                  Divider(height: 1, color: AppColors.surfaceLight.withOpacity(0.4)),
+              itemBuilder: (_, i) {
+                final cap = _capabilities[i];
+                final machineName = (cap['resources'] as Map?)?['name']?.toString() ?? '—';
+                final opName = (cap['operation_types'] as Map?)?['name']?.toString() ?? '—';
+                final rate = cap['processing_rate_per_hr'];
+                final setup = cap['setup_time_minutes'];
+                final cost = cap['cost_per_hour'];
+
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 8, height: 8,
+                              margin: const EdgeInsets.only(right: 8),
+                              decoration: const BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: AppColors.success,
+                              ),
+                            ),
+                            Expanded(
+                              child: Text(
+                                machineName,
+                                style: const TextStyle(
+                                  color: AppColors.textPrimary, fontWeight: FontWeight.w600, fontSize: 13,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        flex: 3,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppColors.secondary.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            opName,
+                            style: const TextStyle(
+                              color: AppColors.secondary, fontSize: 12, fontWeight: FontWeight.w600,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 2,
+                        child: Text(
+                          rate != null ? '${rate.toStringAsFixed(0)} units' : '—',
+                          style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 2,
+                        child: Text(
+                          setup != null ? '$setup min' : '—',
+                          style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 2,
+                        child: Text(
+                          cost != null ? '\$${cost.toStringAsFixed(2)}/hr' : '—',
+                          style: const TextStyle(color: AppColors.success, fontWeight: FontWeight.w600, fontSize: 13),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ],
     );
   }

@@ -12,18 +12,16 @@ def fetch_optiflow_data(job_id: str):
     Pulls the current physical reality of the print shop out of PostgreSQL 
     and translates it into Python lists and dictionaries.
     """
-    # 1. Get every step required to complete this specific order (e.g., Print, Fold, Bind)
+    # 1. Get every step required to complete this specific order
     tasks = supabase.table("tasks").select("*").eq("job_id", job_id).execute().data
     
-    # 2. Extract just the IDs so we can look up their specific chronological rules
+    # 2. Extract IDs for dependency lookups
     task_ids = [t['id'] for t in tasks]
     
-    # 3. Get the DAG (Directed Acyclic Graph) rules. 
-    # Example: "Task B (Fold) is the successor_task_id to Task A (Print)"
+    # 3. Get the DAG (Directed Acyclic Graph) rules
     dependencies = supabase.table("task_dependencies").select("*").in_("successor_task_id", task_ids).execute().data
     
-    # 4. Get the Skills Matrix. This tells us which machines/workers exist, 
-    # what they can do, how fast they do it, and what they cost.
+    # 4. Get the Skills Matrix (Speeds and Costs)
     capabilities = supabase.table("resource_capabilities").select("*").execute().data
     
     return tasks, dependencies, capabilities
@@ -32,149 +30,149 @@ def fetch_optiflow_data(job_id: str):
 # PHASE 2: THE MATHEMATICAL BRAIN (CP-SAT)
 # =====================================================================
 
-def run_optimization_engine(job_id: str, project_start_time: datetime):
-    
+def run_optimization_engine(job_id: str, project_start_time: datetime, alpha: int = 70, beta: int = 30):
+    """
+    Executes the Constraint Programming solver.
+    alpha: The weight given to completing the job quickly (Time).
+    beta: The weight given to minimizing operational expenses (Cost).
+    """
     # Bring the database information into the engine's memory
     tasks, dependencies, capabilities = fetch_optiflow_data(job_id)
     
-    # Instantiate the blank canvas where we will build our mathematical universe
+    # Instantiate the blank canvas
     model = cp_model.CpModel()
       
-    # The solver needs a definitive "End of Time" to cap its search space.
-    # We set 100,000 minutes (about 69 days). No print job should take this long.
+    # Horizon: The absolute maximum time the factory could theoretically run (in minutes)
     horizon = 100000 
 
     # --- TRACKING DICTIONARIES ---
-    # The solver generates thousands of temporary variables. We need these 
-    # dictionaries to keep track of them so we can extract the winners later.
     task_vars = {}          # Tracks the global start/end time of a task
-    machine_intervals = {}  # Groups time blocks by machine (used to prevent double-booking)
+    machine_intervals = {}  # Groups time blocks by machine (prevents overlap)
     presence_trackers = {}  # Tracks the boolean (0 or 1) of WHO was assigned to WHAT
+    cost_expressions = []   # Tracks the financial cost of the solver's choices
 
     # -----------------------------------------------------------------
-    # STEP 2: CREATING THE QUANTUM TIMELINE (Variables & Intervals)
+    # STEP 2: CREATING THE QUANTUM TIMELINE
     # -----------------------------------------------------------------
     for task in tasks:
         t_id = task['id']
-        op_type = task['operation_type_id'] # e.g., 'fold_pages'
-        qty = task['quantity_to_process']   # e.g., 500 units
+        op_type = task['operation_type_id'] 
+        qty = task['quantity_to_process']   
         
-        # Create an integer variable for the absolute start and end time of this task.
-        # We don't know the answer yet. We just tell the solver: "It is a number between 0 and 100,000."
+        # Absolute start and end time variables for the task
         task_start = model.NewIntVar(0, horizon, f'start_{t_id}')
         task_end = model.NewIntVar(0, horizon, f'end_{t_id}')
         task_vars[t_id] = {'start': task_start, 'end': task_end}
         
-        # Filter the Skills Matrix to find EVERY resource that knows how to do this operation
+        # Find capable machines
         capable_resources = [c for c in capabilities if c['operation_type_id'] == op_type]
-        
-        # This list will hold the "Switches" (0 or 1) for each possible machine
         presence_literals = []
 
         for cap in capable_resources:
             r_id = cap['resource_id']
             
-            # Ensure this machine has a list in our tracking dictionary
             if r_id not in machine_intervals:
                 machine_intervals[r_id] = []
             
-            # MATH: Calculate how long this specific machine takes to do the quantity.
-            # (Quantity / Units Per Hour) * 60 minutes + Setup Time
+            # MATH: Calculate Duration
             duration_minutes = int((qty / cap['processing_rate_per_hr']) * 60 + cap['setup_time_minutes'])
             
-            # THE SWITCH: A Boolean variable (True=1, False=0).
-            # "Is this task assigned to this specific machine?"
+            # MATH: Calculate Integer Cost (CP-SAT cannot handle decimals)
+            # Cost = (Duration in Hours) * (Hourly Rate)
+            task_cost = int((duration_minutes / 60.0) * float(cap['cost_per_hour']))
+            
+            # THE SWITCH: Did the solver pick this machine? (1 or 0)
             is_present = model.NewBoolVar(f'presence_{t_id}_{r_id}')
             presence_literals.append(is_present)
             presence_trackers[(t_id, r_id)] = is_present 
             
-            # Create local start/end times just for this specific machine
+            # Add the cost to our ledger ONLY if this machine is chosen
+            cost_expressions.append(is_present * task_cost)
+            
+            # Local machine variables
             local_start = model.NewIntVar(0, horizon, f'local_start_{t_id}_{r_id}')
             local_end = model.NewIntVar(0, horizon, f'local_end_{t_id}_{r_id}')
             
-            # THE INTERVAL: This is CP-SAT's superpower. It creates a solid "Block" of time.
-            # Notice we pass `is_present`. If the solver decides NOT to use this machine, 
-            # this entire interval effectively disappears from the math (Size = 0).
+            # The Interval Block
             interval = model.NewOptionalIntervalVar(local_start, duration_minutes, local_end, is_present, f'int_{t_id}_{r_id}')
             
-            # If the solver flips the switch to 1 (True), force the global task start time 
-            # to exactly match this machine's local start time.
             model.Add(task_start == local_start).OnlyEnforceIf(is_present)
             model.Add(task_end == local_end).OnlyEnforceIf(is_present)
             
-            # Add this block of time to the machine's personal calendar
             machine_intervals[r_id].append(interval)
 
-        # CRITICAL RULE: The task MUST be done. The solver is allowed to flip exactly 
-        # ONE of these machine switches to 1. The rest must be 0.
+        # RULE: The task MUST be assigned to exactly ONE machine
         model.AddExactlyOne(presence_literals)
 
     # -----------------------------------------------------------------
     # STEP 3: ENFORCING CHRONOLOGY (The DAG)
     # -----------------------------------------------------------------
     for dep in dependencies:
-        pred_id = dep['predecessor_task_id'] # The task that must finish first (e.g., Print)
-        succ_id = dep['successor_task_id']   # The task waiting in line (e.g., Fold)
-        wait = dep['mandatory_wait_minutes'] # e.g., 120 minutes of ink drying time
+        pred_id = dep['predecessor_task_id'] 
+        succ_id = dep['successor_task_id']   
+        wait = dep['mandatory_wait_minutes'] 
         
         if pred_id in task_vars and succ_id in task_vars:
-            # RULE: Start Time of Folding >= End Time of Printing + Wait Time
+            # RULE: Next task start >= Previous task end + Wait Time
             model.Add(task_vars[succ_id]['start'] >= task_vars[pred_id]['end'] + wait)
 
     # -----------------------------------------------------------------
     # STEP 4: PREVENTING CLASHES (No Overlap)
     # -----------------------------------------------------------------
     for r_id, intervals in machine_intervals.items():
-        # Look at every single time block assigned to Machine X.
-        # Mathematically guarantee that none of them intersect.
+        # RULE: A physical machine cannot do two tasks at the exact same time
         model.AddNoOverlap(intervals)
 
     # -----------------------------------------------------------------
-    # STEP 5: THE GOAL (Objective Function)
+    # STEP 5: THE MULTI-OBJECTIVE EQUATION
     # -----------------------------------------------------------------
-    # Create a variable to represent the very end of the entire job (Makespan)
-    obj_var = model.NewIntVar(0, horizon, 'makespan')
+    # 1. Measure Time (Makespan)
+    makespan_var = model.NewIntVar(0, horizon, 'makespan')
+    model.AddMaxEquality(makespan_var, [vars['end'] for vars in task_vars.values()])
     
-    # Set obj_var to equal the largest 'end' time out of all the tasks
-    model.AddMaxEquality(obj_var, [vars['end'] for vars in task_vars.values()])
-     
-    # Tell the solver: "Find the schedule that makes this number as small as possible."
-    model.Minimize(obj_var)
+    # 2. Measure Total Cost
+    # (We set a massive upper bound just to satisfy the Integer Variable limits)
+    total_cost_var = model.NewIntVar(0, 99999999, 'total_cost')
+    model.Add(total_cost_var == sum(cost_expressions))
+
+    # 3. The Alpha/Beta Minimization
+    # Tell the solver to balance the schedule based on your custom weights
+    model.Minimize((alpha * makespan_var) + (beta * total_cost_var))
 
     # -----------------------------------------------------------------
-    # STEP 6: UNLEASH THE C++ ENGINE
+    # STEP 6: UNLEASH THE ENGINE
     # -----------------------------------------------------------------
     solver = cp_model.CpSolver()
-    status = solver.Solve(model) # This is where the CPU spikes and calculates millions of paths
+    status = solver.Solve(model) 
 
     # =====================================================================
     # PHASE 3: DATA EXTRACTION & SAVING THE RESULTS
     # =====================================================================
     
-    # If the solver found the mathematically perfect schedule (OPTIMAL), or 
-    # at least a schedule that doesn't break any rules (FEASIBLE)...
     if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
-        print(f"✅ Optimal Schedule Found! Total Time: {solver.ObjectiveValue()} minutes.")
+        final_makespan = solver.Value(makespan_var)
+        final_cost = solver.Value(total_cost_var)
+        
+        print(f"✅ Schedule Found! Time: {final_makespan} mins | Cost: ${final_cost}")
         
         for task in tasks:
             t_id = task['id']
             
-            # Read the solver's memory to find out exactly what minute it picked
+            # Extract real times
             start_minutes = solver.Value(task_vars[t_id]['start'])
             end_minutes = solver.Value(task_vars[t_id]['end'])
             
-            # Add those minutes to our starting clock to get a real Timestamp
             actual_start_time = project_start_time + timedelta(minutes=start_minutes)
             actual_end_time = project_start_time + timedelta(minutes=end_minutes)
             
-            # Loop through our Boolean switches to find the ONE machine that got flipped to 1
+            # Extract winning machine
             assigned_r_id = None
             for (track_t_id, r_id), is_present_var in presence_trackers.items():
                 if track_t_id == t_id and solver.Value(is_present_var) == 1:
                     assigned_r_id = r_id
                     break
             
-            # Push the final answers to PostgreSQL so the Flutter app can see them
+            # Commit to Database
             supabase.table("tasks").update({
                 "scheduled_start_time": actual_start_time.isoformat(),
                 "scheduled_end_time": actual_end_time.isoformat(),
@@ -182,10 +180,11 @@ def run_optimization_engine(job_id: str, project_start_time: datetime):
                 "status": "SCHEDULED"
             }).eq("id", t_id).execute()
             
-            print(f"Task {task['name']} -> Assigned to {assigned_r_id} at {actual_start_time}")
-            
-        return {"status": "success", "makespan_minutes": solver.ObjectiveValue()}
+        return {
+            "status": "success", 
+            "makespan_minutes": final_makespan,
+            "total_cost": final_cost
+        }
     else:
-        # If the DAG is broken (e.g., A depends on B, and B depends on A), it fails here.
         print("❌ No feasible schedule found.")
         return {"status": "error", "message": "Constraints impossible to satisfy."}

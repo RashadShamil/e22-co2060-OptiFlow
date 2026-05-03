@@ -4,8 +4,10 @@ import 'package:optiflow_scheduler/core/utils/app_colors.dart';
 
 class MachineCard extends StatelessWidget {
   final Machine machine;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
 
-  const MachineCard({super.key, required this.machine});
+  const MachineCard({super.key, required this.machine, this.onEdit, this.onDelete});
 
   @override
   Widget build(BuildContext context) {
@@ -14,10 +16,11 @@ class MachineCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.surfaceLight.withOpacity(0.3)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
+            color: Colors.black.withOpacity(0.15),
+            blurRadius: 12,
             offset: const Offset(0, 4),
           ),
         ],
@@ -26,15 +29,12 @@ class MachineCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildTopRow(),
-          const SizedBox(height: 24),
-          if (machine.status == "ACTIVE" && machine.currentJobTitle != null)
-            _buildActiveJobSection()
-          else
-            _buildSpacerHeight(85), // Keep card height consistent-ish
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
+          _buildStatusBadge(), // status badge in its own row
+          const SizedBox(height: 20),
           _buildSpecsGrid(),
-          const SizedBox(height: 24),
-          const Divider(height: 1, color: Color(0xFFE5E7EB)),
+          const SizedBox(height: 20),
+          Divider(height: 1, color: AppColors.surfaceLight.withOpacity(0.5)),
           const SizedBox(height: 16),
           _buildFooterStats(),
         ],
@@ -66,10 +66,12 @@ class MachineCard extends StatelessWidget {
                   fontWeight: FontWeight.bold,
                   color: AppColors.textPrimary,
                 ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 4),
               Text(
-                "${machine.type}\n${machine.location}",
+                machine.type,
                 style: const TextStyle(
                   fontSize: 12,
                   color: AppColors.textSecondary,
@@ -79,51 +81,79 @@ class MachineCard extends StatelessWidget {
             ],
           ),
         ),
-        _buildStatusBadge(),
+        // 3-dot menu
+        PopupMenuButton<String>(
+          icon: const Icon(Icons.more_vert, color: AppColors.textSecondary, size: 20),
+          color: AppColors.surfaceLight,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          onSelected: (val) {
+            if (val == 'edit') onEdit?.call();
+            if (val == 'delete') onDelete?.call();
+          },
+          itemBuilder: (_) => [
+            const PopupMenuItem(value: 'edit', child: Row(children: [
+              Icon(Icons.edit_rounded, size: 16, color: AppColors.primary),
+              SizedBox(width: 8),
+              Text('Edit Machine', style: TextStyle(color: AppColors.textPrimary)),
+            ])),
+            const PopupMenuItem(value: 'delete', child: Row(children: [
+              Icon(Icons.delete_outline, size: 16, color: AppColors.error),
+              SizedBox(width: 8),
+              Text('Remove', style: TextStyle(color: AppColors.error)),
+            ])),
+          ],
+        ),
       ],
     );
   }
 
   Widget _buildStatusBadge() {
-    Color color = _getStatusColor(machine.status);
-    String label = machine.status;
-    IconData icon = Icons.circle;
+    Color color;
+    String label;
+    IconData icon;
 
-    if (machine.status == "ACTIVE") {
-      label = "Busy";
-      icon = Icons.access_time_filled;
-      color = const Color(0xFFD946EF); // Pink
-    } else if (machine.status == "MAINTENANCE") {
-      icon = Icons.build_circle;
-      color = AppColors.warning;
-    } else if (machine.status == "BROKEN") {
-      label = "Error";
-      icon = Icons.error;
-      color = AppColors.error;
-    } else {
-      label = "Idle";
-      icon = Icons.check_circle;
-      color = AppColors.textSecondary;
+    switch (machine.status) {
+      case 'ACTIVE':
+        color = AppColors.success;
+        label = 'Active';
+        icon = Icons.play_circle_fill;
+        break;
+      case 'IDLE':
+        color = AppColors.warning;
+        label = 'Idle';
+        icon = Icons.pause_circle_filled;
+        break;
+      case 'MAINTENANCE':
+        color = AppColors.info;
+        label = 'Maintenance';
+        icon = Icons.build_circle;
+        break;
+      case 'OFFLINE':
+        color = AppColors.error;
+        label = 'Offline';
+        icon = Icons.cancel;
+        break;
+      default:
+        color = AppColors.textSecondary;
+        label = machine.status;
+        icon = Icons.circle;
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withOpacity(0.25)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 14, color: color),
-          const SizedBox(width: 4),
+          const SizedBox(width: 6),
           Text(
             label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color),
           ),
         ],
       ),
@@ -195,14 +225,14 @@ class MachineCard extends StatelessWidget {
   }
 
   Widget _buildSpecsGrid() {
+    // Show real data: machine type and a note about capabilities
     return Row(
       children: [
-        _buildSpecItem("Build Volume", machine.buildVolume),
+        _buildSpecItem('Type', machine.type.isEmpty ? 'Machine' : machine.type),
         const SizedBox(width: 16),
-        _buildSpecItem("Material", machine.material),
+        _buildSpecItem('Utilization', '${machine.utilization}%'),
       ],
     );
-    // Note: Resolution is in the design but space might be tight, can add if needed.
   }
 
   Widget _buildSpecItem(String label, String value) {
